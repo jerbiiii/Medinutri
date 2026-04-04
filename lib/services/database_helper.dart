@@ -1,0 +1,120 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+
+class DatabaseHelper {
+  static final DatabaseHelper instance = DatabaseHelper._init();
+  static Database? _database;
+
+  DatabaseHelper._init();
+
+  Future<Database> get database async {
+    if (_database != null) return _database!;
+    _database = await _initDB('medinutri.db');
+    return _database!;
+  }
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 4,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE chat_history ADD COLUMN is_archived INTEGER DEFAULT 0');
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE profiles ADD COLUMN activity_level TEXT DEFAULT "Modérée"');
+      await db.execute('ALTER TABLE profiles ADD COLUMN allergies TEXT DEFAULT "Aucune"');
+      await db.execute('ALTER TABLE profiles ADD COLUMN medical_conditions TEXT DEFAULT "Aucune"');
+      await db.execute('ALTER TABLE profiles ADD COLUMN goal TEXT DEFAULT "Équilibre alimentaire"');
+    }
+    if (oldVersion < 4) {
+      // Add conversation grouping for archived chats
+      await db.execute('ALTER TABLE chat_history ADD COLUMN conversation_id TEXT');
+      await db.execute('ALTER TABLE chat_history ADD COLUMN conversation_title TEXT');
+      
+      // Ensure nutrition_plans table exists (safety for upgrades)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS nutrition_plans (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          meals_json TEXT,
+          tips_json TEXT,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+  }
+
+  Future _createDB(Database db, int version) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+    const realType = 'REAL NOT NULL';
+
+    await db.execute('''
+      CREATE TABLE users (
+        id $idType,
+        username $textType UNIQUE,
+        password_hash $textType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE profiles (
+        id $idType,
+        user_id INTEGER NOT NULL,
+        name $textType,
+        age $intType,
+        gender $textType,
+        weight $realType,
+        height $realType,
+        activity_level $textType DEFAULT 'Modérée',
+        allergies $textType DEFAULT 'Aucune',
+        medical_conditions $textType DEFAULT 'Aucune',
+        goal $textType DEFAULT 'Équilibre alimentaire',
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE chat_history (
+        id $idType,
+        user_id INTEGER NOT NULL,
+        role $textType,
+        content $textType,
+        timestamp $textType,
+        is_archived INTEGER DEFAULT 0,
+        conversation_id TEXT,
+        conversation_title TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE nutrition_plans (
+        id $idType,
+        user_id INTEGER NOT NULL,
+        title $textType,
+        description $textType,
+        meals_json $textType,
+        tips_json $textType,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  Future close() async {
+    final db = await instance.database;
+    db.close();
+  }
+}
