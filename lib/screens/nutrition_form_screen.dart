@@ -14,53 +14,39 @@ class NutritionFormScreen extends StatefulWidget {
 }
 
 class _NutritionFormScreenState extends State<NutritionFormScreen> {
-  final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  
-  // Preferences
-  final Map<String, bool> _goals = {
-    "Perte de poids": false,
-    "Prise de masse": false,
-    "Rééquilibrage alimentaire": true,
-    "Plus d'énergie": false,
-  };
-
-  final Map<String, bool> _restrictions = {
-    "Végétarien": false,
-    "Sans Gluten": false,
-    "Sans Lactose": false,
-    "Autre": false,
-  };
-
-  final TextEditingController _otherController = TextEditingController();
+  GoalType _selectedGoal = GoalType.maintenance;
   final TextEditingController _allergiesController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    final profile = Provider.of<AuthProvider>(context, listen: false).currentProfile;
+    final profile = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentProfile;
     if (profile != null) {
       _allergiesController.text = profile.allergies;
     }
   }
 
-  Future<void> _submitForm() async {
+  @override
+  void dispose() {
+    _allergiesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generate() async {
     setState(() => _isLoading = true);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final healthProvider = Provider.of<HealthProvider>(context, listen: false);
-    
+
     try {
       final profile = authProvider.currentProfile;
       if (profile == null) return;
 
-      List<String> selectedGoals = _goals.entries.where((e) => e.value).map((e) => e.key).toList();
-      List<String> selectedRestrictions = _restrictions.entries.where((e) => e.value).map((e) => e.key).toList();
-      if (_restrictions["Autre"]! && _otherController.text.isNotEmpty) {
-        selectedRestrictions.add(_otherController.text.trim());
-      }
-
-      // 1. Update Profile first
-      final updatedProfile = PatientProfile(
+      // Mettre à jour le profil avec les nouvelles allergies
+      final updated = PatientProfile(
         id: profile.id,
         userId: profile.userId,
         name: profile.name,
@@ -69,21 +55,24 @@ class _NutritionFormScreenState extends State<NutritionFormScreen> {
         weight: profile.weight,
         height: profile.height,
         activityLevel: profile.activityLevel,
-        allergies: _allergiesController.text.trim().isEmpty ? "Aucune" : _allergiesController.text.trim(),
-        medicalConditions: selectedRestrictions.isEmpty ? "Aucune" : selectedRestrictions.join(", "),
-        goal: selectedGoals.isEmpty ? "Équilibre alimentaire" : selectedGoals.join(", "),
+        allergies: _allergiesController.text.trim().isEmpty
+            ? 'Aucune'
+            : _allergiesController.text.trim(),
+        medicalConditions: profile.medicalConditions,
+        goal: _selectedGoal.label,
       );
 
-      await authProvider.updateProfile(updatedProfile);
+      await authProvider.updateProfile(updated);
 
-      // 2. Generate Plan — pass the freshly updated profile to avoid stale cache
-      await healthProvider.generateAndSavePlan(updatedProfile: updatedProfile);
+      await healthProvider.generateAndSavePlan(
+        updatedProfile: updated,
+      );
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Votre plan tunisien est prêt !"),
+          SnackBar(
+            content: Text('Plan "${_selectedGoal.label}" généré avec succès !'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -92,7 +81,10 @@ class _NutritionFormScreenState extends State<NutritionFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur lors de la génération: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -104,100 +96,244 @@ class _NutritionFormScreenState extends State<NutritionFormScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final profile = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentProfile;
+    final tdee = profile?.tdee ?? 2000;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Préférences Nutrition")),
+      appBar: AppBar(title: const Text('Nouveau Programme')),
       body: Stack(
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle("Vos Objectifs"),
-                  ..._goals.keys.map((goal) => _buildCheckbox(goal, _goals)),
-                  
-                  const SizedBox(height: 32),
-                  _buildSectionTitle("Vos Allergies"),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _allergiesController,
-                    decoration: InputDecoration(
-                      hintText: "Ex: Arachides, fruits de mer...",
-                      filled: true,
-                      fillColor: isDark ? Colors.white10 : Colors.grey[100],
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                    ),
-                  ).animate().fadeIn(delay: 200.ms),
-
-                  const SizedBox(height: 32),
-                  _buildSectionTitle("Restrictions Alimentaires"),
-                  ..._restrictions.keys.map((res) => Column(
-                    children: [
-                      _buildCheckbox(res, _restrictions),
-                      if (res == "Autre" && _restrictions["Autre"]!)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: TextFormField(
-                            controller: _otherController,
-                            decoration: InputDecoration(
-                              hintText: "Saisissez votre restriction",
-                              filled: true,
-                              fillColor: isDark ? Colors.white10 : Colors.grey[100],
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            ),
-                          ).animate().fadeIn().scale(alignment: Alignment.centerLeft),
-                        ),
-                    ],
-                  )),
-                  
-                  const SizedBox(height: 48),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 4,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Info TDEE ────────────────────────────
+                if (profile != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: theme.primaryColor.withValues(alpha: 0.3),
                       ),
-                      child: _isLoading 
-                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text("Générer mon programme", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
-                  ).animate().fadeIn(delay: 400.ms).scale(),
-                  const SizedBox(height: 40),
-                ],
-              ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: theme.primaryColor,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Votre TDEE estimé',
+                                style: TextStyle(
+                                  color: theme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '$tdee kcal/jour — basé sur votre profil (${profile.activityLevel})',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.white60
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: 100.ms),
+
+                const SizedBox(height: 28),
+                const Text(
+                  'Choisissez votre objectif',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Chaque objectif génère un plan IA unique et indépendant.',
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Cartes GoalType ───────────────────────
+                ...GoalType.values.asMap().entries.map((entry) {
+                  final goal = entry.value;
+                  final isSelected = _selectedGoal == goal;
+                  final targetCal = tdee + goal.calorieAdjustment;
+                  final calLabel = goal.calorieAdjustment == 0
+                      ? '${targetCal} kcal/jour'
+                      : '${targetCal} kcal/jour (${goal.calorieAdjustment > 0 ? '+' : ''}${goal.calorieAdjustment} kcal)';
+
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedGoal = goal),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? theme.primaryColor.withValues(alpha: 0.12)
+                            : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.primaryColor
+                              : (isDark ? Colors.white12 : Colors.grey[200]!),
+                          width: isSelected ? 2 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: theme.primaryColor.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            goal.emoji,
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  goal.label,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? theme.primaryColor
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  calLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? Colors.white60
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? theme.primaryColor
+                                    : Colors.grey,
+                                width: 2,
+                              ),
+                              color: isSelected
+                                  ? theme.primaryColor
+                                  : Colors.transparent,
+                            ),
+                            child: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 14,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: (200 + entry.key * 80).ms).slideX();
+                }),
+
+                const SizedBox(height: 24),
+                const Text(
+                  'Allergies alimentaires',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _allergiesController,
+                  decoration: InputDecoration(
+                    hintText: 'Ex: Arachides, fruits de mer, gluten...',
+                    filled: true,
+                    fillColor: isDark ? Colors.white10 : Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 600.ms),
+
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _generate,
+                    icon: Text(
+                      _selectedGoal.emoji,
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                    label: Text(
+                      'Générer le plan "${_selectedGoal.label}"',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 700.ms).scale(),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
+
           if (_isLoading)
-            const ModernLoadingOverlay(message: "Génération de votre plan tunisien..."),
+            ModernLoadingOverlay(
+              message:
+                  'Génération du plan "${_selectedGoal.label}" par l\'IA...',
+            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-    ).animate().fadeIn().slideX();
-  }
-
-  Widget _buildCheckbox(String label, Map<String, bool> map) {
-    return CheckboxListTile(
-      title: Text(label),
-      value: map[label],
-      activeColor: Theme.of(context).primaryColor,
-      onChanged: (val) => setState(() => map[label] = val!),
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
     );
   }
 }

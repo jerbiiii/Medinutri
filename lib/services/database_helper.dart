@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -27,20 +27,32 @@ class DatabaseHelper {
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE chat_history ADD COLUMN is_archived INTEGER DEFAULT 0');
+      await db.execute(
+        'ALTER TABLE chat_history ADD COLUMN is_archived INTEGER DEFAULT 0',
+      );
     }
     if (oldVersion < 3) {
-      await db.execute('ALTER TABLE profiles ADD COLUMN activity_level TEXT DEFAULT "Modérée"');
-      await db.execute('ALTER TABLE profiles ADD COLUMN allergies TEXT DEFAULT "Aucune"');
-      await db.execute('ALTER TABLE profiles ADD COLUMN medical_conditions TEXT DEFAULT "Aucune"');
-      await db.execute('ALTER TABLE profiles ADD COLUMN goal TEXT DEFAULT "Équilibre alimentaire"');
+      await db.execute(
+        'ALTER TABLE profiles ADD COLUMN activity_level TEXT DEFAULT "Modérée"',
+      );
+      await db.execute(
+        'ALTER TABLE profiles ADD COLUMN allergies TEXT DEFAULT "Aucune"',
+      );
+      await db.execute(
+        'ALTER TABLE profiles ADD COLUMN medical_conditions TEXT DEFAULT "Aucune"',
+      );
+      await db.execute(
+        'ALTER TABLE profiles ADD COLUMN goal TEXT DEFAULT "Équilibre alimentaire"',
+      );
     }
     if (oldVersion < 4) {
-      // Add conversation grouping for archived chats
-      await db.execute('ALTER TABLE chat_history ADD COLUMN conversation_id TEXT');
-      await db.execute('ALTER TABLE chat_history ADD COLUMN conversation_title TEXT');
-      
-      // Ensure nutrition_plans table exists (safety for upgrades)
+      await db.execute(
+        'ALTER TABLE chat_history ADD COLUMN conversation_id TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE chat_history ADD COLUMN conversation_title TEXT',
+      );
+
       await db.execute('''
         CREATE TABLE IF NOT EXISTS nutrition_plans (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,6 +62,22 @@ class DatabaseHelper {
           meals_json TEXT,
           tips_json TEXT,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+    if (oldVersion < 5) {
+      // Fix ai_doctors table: drop and recreate with correct nullable schema
+      await db.execute('DROP TABLE IF EXISTS ai_doctors');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ai_doctors (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          doctor_id TEXT,
+          name TEXT NOT NULL,
+          specialty TEXT NOT NULL,
+          rating TEXT,
+          image_url TEXT,
+          gender TEXT,
+          created_at TEXT
         )
       ''');
     }
@@ -109,6 +137,19 @@ class DatabaseHelper {
         meals_json $textType,
         tips_json $textType,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_doctors (
+        id $idType,
+        doctor_id TEXT,
+        name $textType,
+        specialty $textType,
+        rating TEXT,
+        image_url TEXT,
+        gender TEXT,
+        created_at TEXT
       )
     ''');
   }

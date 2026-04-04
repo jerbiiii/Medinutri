@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:medinutri/models/health_models.dart';
 import 'package:medinutri/services/database_helper.dart';
 import 'package:medinutri/services/groq_service.dart';
+import 'package:sqflite/sqflite.dart';
 
 class HealthProvider with ChangeNotifier {
   User? _currentUser;
@@ -20,6 +22,12 @@ class HealthProvider with ChangeNotifier {
   String? get planError => _planError;
   List<Map<String, String>> get messages => _messages;
   bool get isTyping => _isTyping;
+
+  List<Doctor> _doctors = [];
+  bool _isLoadingDoctors = false;
+  
+  List<Doctor> get doctors => _doctors;
+  bool get isLoadingDoctors => _isLoadingDoctors;
 
   HealthProvider() {
     _groqService = GroqService();
@@ -84,7 +92,8 @@ class HealthProvider with ChangeNotifier {
 
     for (var m in chatData) {
       final convId = (m['conversation_id'] as String?) ?? "default";
-      final title = (m['conversation_title'] as String?) ?? "Ancienne conversation";
+      final title =
+          (m['conversation_title'] as String?) ?? "Ancienne conversation";
       final timestamp = m['timestamp'] as String;
 
       groupedMessages.putIfAbsent(convId, () => []);
@@ -121,7 +130,8 @@ class HealthProvider with ChangeNotifier {
   Future<void> analyzeSymptoms(String text, {String? systemContext}) async {
     if (_currentUser == null) return;
 
-    _addMessage('user', text);
+    // FIX: était non-awaité → race condition sur la DB
+    await _addMessage('user', text);
     _isTyping = true;
     notifyListeners();
 
@@ -137,7 +147,7 @@ class HealthProvider with ChangeNotifier {
           "Veuillez configurer votre clé Groq pour une analyse complète.";
     }
 
-    _addMessage('assistant', response);
+    await _addMessage('assistant', response);
     _isTyping = false;
     notifyListeners();
   }
@@ -159,8 +169,7 @@ class HealthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Génère un plan nutritionnel 7 jours tunisien via l'IA.
-  /// Jamais de données statiques — toujours générées par le modèle.
+  /// Génère un plan nutritionnel 7 jours tunisien via l'IA avec vraie variété.
   Future<void> generateAndSavePlan({PatientProfile? updatedProfile}) async {
     final profileToUse = updatedProfile ?? _currentProfile;
     if (_currentUser == null || profileToUse == null) return;
@@ -170,53 +179,84 @@ class HealthProvider with ChangeNotifier {
     _currentPlan = null;
     notifyListeners();
 
-    const breakfasts = [
-      'Bssissa au lait chaud', 'Fricassée tunisienne au thon',
-      'Lben avec pain tabouna et olives', 'Kalb el louz',
-      'Ftayer au fromage et thon', 'Assida zgougou',
-      'Makroudh aux dattes et miel',
-    ];
-    const lunches = [
-      'Couscous au poisson (mérou ou dorade)',
-      'Ojja merguez aux poivrons',
-      'Lablabi aux œufs pochés',
-      'Chorba frik au poulet et coriandre',
-      'Brick à l\'oeuf, thon et câpres',
-      'Kafteji tunisien (légumes frits et œufs)',
-      'Marqa poulet aux olives et citron confit',
-    ];
-    const dinners = [
-      'Salade mechouia au thon et câpres',
-      'Chakchouka aux légumes et merguez',
-      'Merguez grillées, salade tunisienne et pain',
-      'Mloukhia à l\'agneau',
-      'Borghol aux légumes et menthe',
-      'Shorba de légumes du jardin',
-      'Tajine malsouka au poulet et fromage',
-    ];
+    // FIX: Listes séparées par catégorie + shuffle aléatoire pour variété réelle
+    final rng = Random();
+    final now = DateTime.now();
 
-    final seed = DateTime.now().millisecondsSinceEpoch % 99999;
+    final breakfasts = [
+      'Bssissa au lait chaud et huile d\'olive',
+      'Fricassée tunisienne au thon, olive et harissa',
+      'Lben avec pain tabouna maison et olives noires',
+      'Kalb el louz (gâteau aux amandes et miel)',
+      'Ftayer au fromage, thon et tomates',
+      'Assida zgougou (crème aux pignons de pin)',
+      'Makroudh aux dattes et sirop de miel',
+      'Ojja aux œufs et légumes grillés',
+      'Pain tabouna avec huile d\'olive et zaatar',
+      'Bourek au fromage et persil frais',
+    ]..shuffle(rng);
 
-    final prompt = '''SEED:$seed
-Tu es un chef nutritionniste tunisien expert. Génère un plan nutritionnel hebdomadaire authentiquement TUNISIEN pour le patient suivant :
+    final lunches = [
+      'Couscous au poisson (mérou ou dorade) et légumes',
+      'Ojja merguez aux poivrons et tomates',
+      'Lablabi aux œufs pochés et pain rassis',
+      'Chorba frik au poulet et coriandre fraîche',
+      'Brick à l\'oeuf, thon, câpres et harissa',
+      'Kafteji tunisien (légumes frits et œufs brouillés)',
+      'Marqa poulet aux olives vertes et citron confit',
+      'Couscous à l\'agneau et légumes de saison',
+      'Tajine malsouka au poulet, fromage et herbes',
+      'Shorba de légumes du jardin et vermicelle',
+    ]..shuffle(rng);
+
+    final dinners = [
+      'Salade mechouia au thon, câpres et harissa',
+      'Chakchouka aux légumes, poivrons et merguez',
+      'Merguez grillées, salade tunisienne fraîche et pain',
+      'Mloukhia à l\'agneau avec pain traditionnel',
+      'Borghol aux légumes, menthe et citron',
+      'Poisson grillé, salade et légumes vapeur',
+      'Poulet rôti aux épices tunisiennes et courgettes',
+      'Salade de poulpe grillé et légumes marinés',
+      'Soupe de légumes tunisienne et croûtons',
+      'Tajine de légumes et pois chiches au cumin',
+    ]..shuffle(rng);
+
+    // Seed unique combinant timestamp + profil pour forcer la variété
+    final seed = now.millisecondsSinceEpoch % 999983;
+    final goalCode = profileToUse.goal.hashCode % 100;
+    final weightCode = profileToUse.weight.toInt() % 10;
+
+    // Sélectionner 7 options uniques de chaque liste (déjà shufflée)
+    final selectedBreakfasts = breakfasts.take(7).toList();
+    final selectedLunches = lunches.take(7).toList();
+    final selectedDinners = dinners.take(7).toList();
+
+    final prompt =
+        '''VARIATION_SEED:$seed|PROFIL_CODE:${goalCode}_${weightCode}|TIMESTAMP:${now.toIso8601String()}
+
+Tu es un chef nutritionniste tunisien expert. Génère un plan nutritionnel UNIQUE et varié pour :
 - Nom : ${profileToUse.name}
 - Objectif santé : ${profileToUse.goal}
 - Allergies : ${profileToUse.allergies}
 - Conditions médicales : ${profileToUse.medicalConditions}
 - Niveau d'activité : ${profileToUse.activityLevel}
+- Poids : ${profileToUse.weight}kg | Taille : ${profileToUse.height}cm
 
-CONTRAINTES ABSOLUES :
-1. 7 jours complets : Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche
-2. 3 repas par jour : Petit-déjeuner, Déjeuner, Dîner
-3. Cuisine 100% tunisienne ou méditerranéenne disponible en Tunisie
-4. Exemples de petit-déjeuners : ${breakfasts.join(' | ')}
-5. Exemples de déjeuners : ${lunches.join(' | ')}
-6. Exemples de dîners : ${dinners.join(' | ')}
-7. Varie les plats — aucune répétition sur la semaine
-8. Adapte les calories selon l'objectif (${profileToUse.goal})
+REPAS SUGGÉRÉS (utilise-les dans l'ordre donné, ils sont déjà mélangés pour ce profil) :
+Petits-déjeuners (Lundi→Dimanche) : ${selectedBreakfasts.join(' | ')}
+Déjeuners (Lundi→Dimanche) : ${selectedLunches.join(' | ')}
+Dîners (Lundi→Dimanche) : ${selectedDinners.join(' | ')}
 
-FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni après :
-{"title":"Programme Tunisien 7 jours — ${profileToUse.name}","description":"Plan hebdomadaire cuisine tunisienne authentique adapté à vos besoins.","weeklyMeals":{"Lundi":[{"name":"Nom du plat","type":"Petit-déjeuner","ingredients":["ingredient1","ingredient2","ingredient3"],"preparation":"Description de la préparation en 2-3 phrases.","calories":350,"protein":12.5,"carbs":45.0,"fat":10.0,"prepTime":"10 min"},{"name":"Nom du plat","type":"Déjeuner","ingredients":["ingredient1"],"preparation":"Préparation.","calories":520,"protein":28.0,"carbs":60.0,"fat":14.0,"prepTime":"35 min"},{"name":"Nom du plat","type":"Dîner","ingredients":["ingredient1"],"preparation":"Préparation.","calories":370,"protein":18.0,"carbs":32.0,"fat":12.0,"prepTime":"20 min"}],"Mardi":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":320,"protein":10.0,"carbs":42.0,"fat":9.0,"prepTime":"8 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":500,"protein":26.0,"carbs":58.0,"fat":13.0,"prepTime":"40 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":360,"protein":20.0,"carbs":30.0,"fat":11.0,"prepTime":"25 min"}],"Mercredi":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":340,"protein":11.0,"carbs":44.0,"fat":9.5,"prepTime":"12 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":540,"protein":30.0,"carbs":62.0,"fat":15.0,"prepTime":"50 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":390,"protein":22.0,"carbs":35.0,"fat":13.0,"prepTime":"20 min"}],"Jeudi":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":360,"protein":13.0,"carbs":46.0,"fat":10.5,"prepTime":"15 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":510,"protein":27.0,"carbs":59.0,"fat":13.5,"prepTime":"30 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":380,"protein":19.0,"carbs":33.0,"fat":12.5,"prepTime":"22 min"}],"Vendredi":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":330,"protein":11.5,"carbs":43.0,"fat":9.0,"prepTime":"10 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":560,"protein":32.0,"carbs":65.0,"fat":16.0,"prepTime":"60 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":375,"protein":19.5,"carbs":31.0,"fat":12.0,"prepTime":"18 min"}],"Samedi":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":410,"protein":14.0,"carbs":50.0,"fat":12.0,"prepTime":"20 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":580,"protein":35.0,"carbs":68.0,"fat":17.0,"prepTime":"45 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":400,"protein":22.0,"carbs":36.0,"fat":14.0,"prepTime":"25 min"}],"Dimanche":[{"name":"...","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":345,"protein":12.0,"carbs":44.0,"fat":9.5,"prepTime":"10 min"},{"name":"...","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":530,"protein":29.0,"carbs":62.0,"fat":14.5,"prepTime":"40 min"},{"name":"...","type":"Dîner","ingredients":["..."],"preparation":"...","calories":385,"protein":21.0,"carbs":34.0,"fat":12.5,"prepTime":"20 min"}]},"tips":["Conseil santé 1 spécifique à la cuisine tunisienne","Conseil 2","Conseil 3","Conseil 4"]}''';
+RÈGLES ABSOLUES :
+1. 7 jours : Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi, Dimanche
+2. 3 repas/jour : Petit-déjeuner, Déjeuner, Dîner
+3. Utilise EXACTEMENT les plats suggérés ci-dessus dans l'ordre
+4. Adapte les calories à l'objectif "${profileToUse.goal}" et au poids ${profileToUse.weight}kg
+5. Fournis des ingrédients réels et une préparation détaillée tunisienne authentique
+
+RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
+{"title":"Programme Tunisien 7 jours — ${profileToUse.name}","description":"Plan hebdomadaire cuisine tunisienne authentique personnalisé.","weeklyMeals":{"Lundi":[{"name":"${selectedBreakfasts[0]}","type":"Petit-déjeuner","ingredients":["ingredient1","ingredient2","ingredient3"],"preparation":"Préparation détaillée en 2-3 phrases.","calories":350,"protein":12.0,"carbs":45.0,"fat":10.0,"prepTime":"10 min"},{"name":"${selectedLunches[0]}","type":"Déjeuner","ingredients":["ingredient1","ingredient2"],"preparation":"Préparation.","calories":520,"protein":28.0,"carbs":60.0,"fat":14.0,"prepTime":"35 min"},{"name":"${selectedDinners[0]}","type":"Dîner","ingredients":["ingredient1","ingredient2"],"preparation":"Préparation.","calories":370,"protein":18.0,"carbs":32.0,"fat":12.0,"prepTime":"20 min"}],"Mardi":[{"name":"${selectedBreakfasts[1]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":320,"protein":10.0,"carbs":42.0,"fat":9.0,"prepTime":"8 min"},{"name":"${selectedLunches[1]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":500,"protein":26.0,"carbs":58.0,"fat":13.0,"prepTime":"40 min"},{"name":"${selectedDinners[1]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":360,"protein":20.0,"carbs":30.0,"fat":11.0,"prepTime":"25 min"}],"Mercredi":[{"name":"${selectedBreakfasts[2]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":340,"protein":11.0,"carbs":44.0,"fat":9.5,"prepTime":"12 min"},{"name":"${selectedLunches[2]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":540,"protein":30.0,"carbs":62.0,"fat":15.0,"prepTime":"50 min"},{"name":"${selectedDinners[2]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":390,"protein":22.0,"carbs":35.0,"fat":13.0,"prepTime":"20 min"}],"Jeudi":[{"name":"${selectedBreakfasts[3]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":360,"protein":13.0,"carbs":46.0,"fat":10.5,"prepTime":"15 min"},{"name":"${selectedLunches[3]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":510,"protein":27.0,"carbs":59.0,"fat":13.5,"prepTime":"30 min"},{"name":"${selectedDinners[3]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":380,"protein":19.0,"carbs":33.0,"fat":12.5,"prepTime":"22 min"}],"Vendredi":[{"name":"${selectedBreakfasts[4]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":330,"protein":11.5,"carbs":43.0,"fat":9.0,"prepTime":"10 min"},{"name":"${selectedLunches[4]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":560,"protein":32.0,"carbs":65.0,"fat":16.0,"prepTime":"60 min"},{"name":"${selectedDinners[4]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":375,"protein":19.5,"carbs":31.0,"fat":12.0,"prepTime":"18 min"}],"Samedi":[{"name":"${selectedBreakfasts[5]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":410,"protein":14.0,"carbs":50.0,"fat":12.0,"prepTime":"20 min"},{"name":"${selectedLunches[5]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":580,"protein":35.0,"carbs":68.0,"fat":17.0,"prepTime":"45 min"},{"name":"${selectedDinners[5]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":400,"protein":22.0,"carbs":36.0,"fat":14.0,"prepTime":"25 min"}],"Dimanche":[{"name":"${selectedBreakfasts[6]}","type":"Petit-déjeuner","ingredients":["..."],"preparation":"...","calories":345,"protein":12.0,"carbs":44.0,"fat":9.5,"prepTime":"10 min"},{"name":"${selectedLunches[6]}","type":"Déjeuner","ingredients":["..."],"preparation":"...","calories":530,"protein":29.0,"carbs":62.0,"fat":14.5,"prepTime":"40 min"},{"name":"${selectedDinners[6]}","type":"Dîner","ingredients":["..."],"preparation":"...","calories":385,"protein":21.0,"carbs":34.0,"fat":12.5,"prepTime":"20 min"}]},"tips":["Conseil santé tunisien spécifique 1 adapté à ${profileToUse.goal}","Conseil 2","Conseil 3","Conseil 4"]}''';
 
     try {
       final response = await _groqService?.getChatResponse(
@@ -224,7 +264,9 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
         customSystemPrompt: prompt,
       );
 
-      if (response == null || response == '__RATE_LIMITED__' || response == '__ERROR__') {
+      if (response == null ||
+          response == '__RATE_LIMITED__' ||
+          response == '__ERROR__') {
         _planError = response == '__RATE_LIMITED__'
             ? 'Limite API atteinte. Réessayez dans quelques secondes.'
             : 'Connexion impossible. Vérifiez votre réseau et réessayez.';
@@ -233,14 +275,14 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
 
       String jsonStr = response.trim();
 
-      // Strip markdown code blocks if present
+      // Nettoyer les blocs markdown si présents
       if (jsonStr.contains('```json')) {
         jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
       } else if (jsonStr.contains('```')) {
         jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
       }
 
-      // Extract the outermost JSON object
+      // Extraire l'objet JSON valide
       final start = jsonStr.indexOf('{');
       final end = jsonStr.lastIndexOf('}');
       if (start >= 0 && end > start) {
@@ -251,7 +293,8 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
       final weeklyMealsRaw = planData['weeklyMeals'] as Map?;
 
       if (weeklyMealsRaw == null || weeklyMealsRaw.length < 7) {
-        _planError = 'Plan incomplet reçu (${weeklyMealsRaw?.length ?? 0}/7 jours). Réessayez.';
+        _planError =
+            'Plan incomplet reçu (${weeklyMealsRaw?.length ?? 0}/7 jours). Réessayez.';
         return;
       }
 
@@ -266,9 +309,13 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
 
       _currentPlan = NutritionPlan(
         userId: _currentUser!.id!,
-        title: planData['title']?.toString() ??
+        goalType: GoalType.fromString(profileToUse.goal),
+        dailyCaloricTarget: profileToUse.tdee,
+        title:
+            planData['title']?.toString() ??
             'Programme Tunisien — ${profileToUse.name}',
-        description: planData['description']?.toString() ??
+        description:
+            planData['description']?.toString() ??
             'Plan hebdomadaire de cuisine tunisienne authentique.',
         weeklyMeals: weeklyMeals,
         tips: planData['tips'] != null
@@ -277,8 +324,12 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
       );
 
       final db = await DatabaseHelper.instance.database;
-      await db.delete('nutrition_plans',
-          where: 'user_id = ?', whereArgs: [_currentUser!.id]);
+      // Supprimer l'ancien plan avant d'insérer le nouveau
+      await db.delete(
+        'nutrition_plans',
+        where: 'user_id = ?',
+        whereArgs: [_currentUser!.id],
+      );
       await db.insert('nutrition_plans', _currentPlan!.toMap());
       _planError = null;
     } catch (e) {
@@ -317,7 +368,8 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
     }
 
     final newConvId =
-        _activeConversationId ?? DateTime.now().millisecondsSinceEpoch.toString();
+        _activeConversationId ??
+        DateTime.now().millisecondsSinceEpoch.toString();
 
     await db.update(
       'chat_history',
@@ -333,5 +385,137 @@ FORMAT JSON STRICT — Réponds UNIQUEMENT avec ce JSON, sans texte avant ni apr
     _messages.clear();
     _activeConversationId = null;
     notifyListeners();
+  }
+
+  Future<void> loadOrGenerateDoctors({bool forceRefresh = false}) async {
+    if (_doctors.isNotEmpty && !forceRefresh) return;
+    _isLoadingDoctors = true;
+    notifyListeners();
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+
+      if (!forceRefresh) {
+        final rows = await db.query('ai_doctors');
+        if (rows.isNotEmpty) {
+          final firstDate = DateTime.tryParse(rows.first['created_at'] as String? ?? '');
+          if (firstDate != null && DateTime.now().difference(firstDate).inDays < 7) {
+            _doctors = rows.map((r) => Doctor.fromMap(r)).toList();
+            _isLoadingDoctors = false;
+            notifyListeners();
+            return;
+          }
+        }
+      }
+
+      final symptomContext = _messages.isNotEmpty
+          ? 'Basé sur les derniers symptômes du patient : ${_messages.last['content']}'
+          : 'App généraliste de télémédecine';
+
+      final prompt = '''Génère une liste de 8 médecins fictifs pour une app de télémédecine tunisienne.
+$symptomContext
+
+Règles :
+- Noms maghrébins/français réalistes
+- Spécialités variées
+- Genre mixte (4 hommes, 4 femmes)
+- Notes réalistes entre 4.5 et 5.0
+
+FORMAT JSON STRICT — UNIQUEMENT CE JSON :
+{"doctors":[{"id":"1","name":"Dr. Prénom Nom","specialty":"Spécialité médicale","rating":"4.8","gender":"male"},{"id":"2","name":"Dr. Prénom Nom","specialty":"Spécialité","rating":"4.9","gender":"female"}]}''';
+
+      final response = await _groqService?.getChatResponse(
+        [],
+        customSystemPrompt: prompt,
+      );
+
+      if (response == null || response.startsWith('__') || response.startsWith('Erreur')) {
+        _isLoadingDoctors = false;
+        notifyListeners();
+        return;
+      }
+
+      String json = response.trim();
+      final start = json.indexOf('{');
+      final end = json.lastIndexOf('}');
+      if (start >= 0 && end > start) json = json.substring(start, end + 1);
+
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      final doctorsList = (data['doctors'] as List?) ?? [];
+
+      final now = DateTime.now().toIso8601String();
+      final generated = <Doctor>[];
+
+      await db.delete('ai_doctors');
+      for (final d in doctorsList) {
+        final map = Map<String, dynamic>.from(d as Map);
+        final gender = map['gender'] as String? ?? 'male';
+        final id = map['id'] as String? ?? '${generated.length + 1}';
+        final imageUrl = 'https://i.pravatar.cc/150?u=doctor_${id}_$gender';
+
+        final doctor = Doctor(
+          id: id,
+          name: map['name'] as String,
+          specialty: map['specialty'] as String,
+          rating: map['rating'] as String,
+          imageUrl: imageUrl,
+          gender: gender,
+        );
+        generated.add(doctor);
+        await db.insert('ai_doctors', {
+          ...doctor.toMap(),
+          'created_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      _doctors = generated;
+    } catch (e) {
+      debugPrint('loadOrGenerateDoctors error: $e');
+    } finally {
+      _isLoadingDoctors = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String> generateDiagnosticSummary() async {
+    final profile = _currentProfile;
+    if (profile == null) return 'Complétez votre profil pour un diagnostic.';
+
+    if (_messages.isEmpty) {
+      return 'Aucune consultation récente. Décrivez vos symptômes au Dr. Vitality.';
+    }
+
+    final recentMessages = _messages.length > 8
+        ? _messages.sublist(_messages.length - 8)
+        : List<Map<String, String>>.from(_messages);
+
+    final summaryPrompt =
+        'Résume en UNE phrase courte (max 20 mots) le principal problème de santé '
+        'évoqué dans cette conversation. Commence par le problème, pas par "Le patient...".';
+
+    final summary = await _groqService?.getChatResponse(
+      recentMessages,
+      customSystemPrompt: summaryPrompt,
+    );
+
+    if (summary == null || summary.startsWith('__') || summary.startsWith('Erreur')) {
+      return 'Dernière consultation disponible. Une consultation vidéo est recommandée.';
+    }
+    return summary.replaceAll('"', '').trim();
+  }
+
+  Future<String> analyzeForVoiceConsultation(
+    String text,
+    List<Map<String, String>> localHistory,
+    String doctorPersona,
+  ) async {
+    localHistory.add({'role': 'user', 'content': 'Patient: $text'});
+
+    final response = await _groqService?.getChatResponse(
+      localHistory,
+      customSystemPrompt: doctorPersona,
+    );
+
+    localHistory.add({'role': 'assistant', 'content': response ?? ""});
+    return response ?? "";
   }
 }

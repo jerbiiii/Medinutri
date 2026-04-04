@@ -6,16 +6,13 @@ import 'package:medinutri/widgets/doctor_avatar_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'dart:math' as math;
 
 enum AvatarState { idle, listening, thinking, speaking, waving }
 
 class VoiceConsultationScreen extends StatefulWidget {
   final Doctor doctor;
-
-  const VoiceConsultationScreen({
-    super.key,
-    required this.doctor,
-  });
+  const VoiceConsultationScreen({super.key, required this.doctor});
 
   @override
   State<VoiceConsultationScreen> createState() =>
@@ -24,221 +21,212 @@ class VoiceConsultationScreen extends StatefulWidget {
 
 class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
     with TickerProviderStateMixin {
-  AvatarState _currentState = AvatarState.waving;
-  String _statusText = "Préparation de la consultation...";
-  late AnimationController _micPulseController;
-  late AnimationController _backgroundPulse;
+  AvatarState _state = AvatarState.waving;
+  String _statusText = 'Préparation de la consultation...';
 
-  final FlutterTts _flutterTts = FlutterTts();
-  final SpeechToText _speechToText = SpeechToText();
-  bool _speechEnabled = false;
-  bool _isAutoListening = true;
+  late AnimationController _micPulse;
+  late AnimationController _bgPulse;
 
-  String get _avatarStateString => _currentState.name;
+  final FlutterTts _tts = FlutterTts();
+  final SpeechToText _stt = SpeechToText();
+  bool _speechReady = false;
+
+  // ── Historique LOCAL de cette consultation ──────────────
+  // Ne pollue PAS le chat principal de HealthProvider
+  final List<Map<String, String>> _localHistory = [];
+
+  // Persona du médecin injectée dans chaque appel IA
+  String get _doctorPersona =>
+      'Tu es ${widget.doctor.name}, spécialiste en ${widget.doctor.specialty}. '
+      'Tu parles à un patient lors d\'une consultation vocale. '
+      'Réponds en maximum 2-3 phrases courtes pour garder la fluidité. '
+      'Sois professionnel, empathique et rassurant. Réponds en français.';
 
   @override
   void initState() {
     super.initState();
-    _micPulseController =
-        AnimationController(vsync: this, duration: 1500.ms);
-    _backgroundPulse = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    _micPulse = AnimationController(vsync: this, duration: 1500.ms);
+    _bgPulse = AnimationController(vsync: this, duration: 3.seconds)
+      ..repeat(reverse: true);
 
     _initSpeech();
     _initTts();
   }
 
-  void _setAvatarState(AvatarState state, {String? statusText}) {
+  @override
+  void dispose() {
+    _micPulse.dispose();
+    _bgPulse.dispose();
+    _tts.stop();
+    _stt.stop();
+    super.dispose();
+  }
+
+  void _setState2(AvatarState s, {String? status}) {
     if (!mounted) return;
     setState(() {
-      _currentState = state;
-      if (statusText != null) _statusText = statusText;
+      _state = s;
+      if (status != null) _statusText = status;
     });
   }
 
-  void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize(
-      onError: (val) => debugPrint('Speech Error: $val'),
-      onStatus: (val) => _handleSpeechStatus(val),
+  // ─────────────────────────────────────────────────────
+  //  INITIALISATION
+  // ─────────────────────────────────────────────────────
+  Future<void> _initSpeech() async {
+    _speechReady = await _stt.initialize(
+      onError: (e) => debugPrint('STT error: $e'),
+      onStatus: (s) {
+        if ((s == 'done' || s == 'notListening') &&
+            _state == AvatarState.listening) {
+          _setState2(AvatarState.idle);
+          _micPulse.stop();
+        }
+      },
     );
     if (mounted) setState(() {});
   }
 
-  void _handleSpeechStatus(String status) {
-    if (status == 'done' || status == 'notListening') {
-      if (_currentState == AvatarState.listening) {
-        _setAvatarState(AvatarState.idle);
-        _micPulseController.stop();
-      }
-    }
-  }
+  Future<void> _initTts() async {
+    await _tts.setLanguage('fr-FR');
 
-  void _initTts() async {
-    await _flutterTts.setLanguage("fr-FR");
-
+    // Sélection de voix selon le genre
     try {
-      List<dynamic> voices = await _flutterTts.getVoices;
-      var frenchVoices =
-          voices.where((v) => v["locale"].toString().contains("fr")).toList();
-
-      if (frenchVoices.isNotEmpty) {
-        String genderKey = widget.doctor.gender == 'male' ? 'male' : 'female';
-        var selectedVoice = frenchVoices.firstWhere(
-          (v) => v["name"].toString().toLowerCase().contains(genderKey),
-          orElse: () => frenchVoices.firstWhere(
-            (v) => v["gender"] == genderKey,
-            orElse: () => frenchVoices.first,
-          ),
-        );
-        await _flutterTts.setVoice(
-            {"name": selectedVoice["name"], "locale": selectedVoice["locale"]});
-      }
-    } catch (e) {
-      debugPrint("Error setting voice: $e");
-    }
-
-    await _flutterTts.setPitch(widget.doctor.gender == 'male' ? 0.85 : 1.15);
-    await _flutterTts.setSpeechRate(0.5);
-
-    _flutterTts.setCompletionHandler(() {
-      if (mounted) {
-        _setAvatarState(AvatarState.idle, statusText: "Je vous écoute...");
-        if (_isAutoListening) {
-          Future.delayed(500.ms, () => _startListening());
+      final voices = await _tts.getVoices as List?;
+      if (voices != null) {
+        final frVoices = voices
+            .where((v) => (v['locale'] as String? ?? '').contains('fr'))
+            .toList();
+        if (frVoices.isNotEmpty) {
+          final genderKey = widget.doctor.gender == 'male' ? 'male' : 'female';
+          final voice = frVoices.firstWhere(
+            (v) => (v['name'] as String).toLowerCase().contains(genderKey),
+            orElse: () => frVoices.first,
+          );
+          await _tts.setVoice({
+            'name': voice['name'],
+            'locale': voice['locale'],
+          });
         }
+      }
+    } catch (_) {}
+
+    await _tts.setPitch(widget.doctor.gender == 'male' ? 0.85 : 1.15);
+    await _tts.setSpeechRate(0.5);
+
+    _tts.setCompletionHandler(() {
+      if (mounted) {
+        _setState2(AvatarState.idle, status: 'Je vous écoute...');
+        Future.delayed(500.ms, _startListening);
       }
     });
 
-    _initialWaving();
-  }
-
-  void _initialWaving() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    // Salutation d'accueil
+    await Future.delayed(1500.ms);
     final greeting =
-        "Bonjour, ici le ${widget.doctor.name}, spécialiste en ${widget.doctor.specialty}. "
-        "Je suis prêt pour votre consultation. Comment vous sentez-vous aujourd'hui ?";
-
-    if (mounted) {
-      _setAvatarState(AvatarState.speaking, statusText: "Présentation...");
-      await _flutterTts.speak(greeting);
-    }
+        'Bonjour, je suis ${widget.doctor.name}, ${widget.doctor.specialty}. '
+        'Je suis prêt pour votre consultation. Comment vous sentez-vous aujourd\'hui ?';
+    _setState2(AvatarState.speaking, status: 'Présentation...');
+    await _tts.speak(greeting);
+    // Ajouter la salutation dans l'historique local
+    _localHistory.add({'role': 'assistant', 'content': greeting});
   }
 
-  @override
-  void dispose() {
-    _micPulseController.dispose();
-    _backgroundPulse.dispose();
-    _flutterTts.stop();
-    _speechToText.stop();
-    super.dispose();
-  }
+  // ─────────────────────────────────────────────────────
+  //  ÉCOUTE VOCALE
+  // ─────────────────────────────────────────────────────
+  Future<void> _startListening() async {
+    if (!_speechReady) return;
+    _setState2(AvatarState.listening, status: 'Exprimez-vous librement...');
+    _micPulse.repeat(reverse: true);
 
-  void _startListening() async {
-    if (!_speechEnabled) return;
-
-    if (mounted) {
-      _setAvatarState(AvatarState.listening,
-          statusText: "Exprimez-vous librement...");
-      _micPulseController.repeat(reverse: true);
-    }
-
-    await _speechToText.listen(
+    await _stt.listen(
       onResult: (result) {
-        if (result.finalResult) {
-          _handleCommand(result.recognizedWords);
-        }
+        if (result.finalResult) _handleInput(result.recognizedWords);
       },
-      localeId: "fr-FR",
-      listenFor: const Duration(seconds: 10),
+      localeId: 'fr-FR',
+      listenFor: const Duration(seconds: 15),
       pauseFor: const Duration(seconds: 3),
     );
   }
 
-  void _stopListening() async {
-    await _speechToText.stop();
-    if (mounted) {
-      _setAvatarState(AvatarState.idle);
-      _micPulseController.stop();
-    }
+  Future<void> _stopListening() async {
+    await _stt.stop();
+    _setState2(AvatarState.idle);
+    _micPulse.stop();
   }
 
-  void _handleCommand(String text) async {
+  // ─────────────────────────────────────────────────────
+  //  TRAITEMENT DE LA RÉPONSE IA (ISOLÉ)
+  // ─────────────────────────────────────────────────────
+  Future<void> _handleInput(String text) async {
     if (text.isEmpty) {
-      if (_isAutoListening) {
-        Future.delayed(1000.ms, () => _startListening());
-      }
+      Future.delayed(1.seconds, _startListening);
       return;
     }
 
-    if (mounted) {
-      _setAvatarState(AvatarState.thinking,
-          statusText: "${widget.doctor.name} réfléchit...");
-    }
+    _setState2(
+      AvatarState.thinking,
+      status: '${widget.doctor.name} réfléchit...',
+    );
 
     try {
-      final healthProvider = Provider.of<HealthProvider>(context, listen: false);
+      final hp = Provider.of<HealthProvider>(context, listen: false);
 
-      final systemPersona =
-          "Tu es le ${widget.doctor.name}, un expert en ${widget.doctor.specialty}. "
-          "Tu parles à un patient lors d'une consultation vocale. "
-          "Réponds concisément (max 2-3 phrases) pour garder la fluidité. "
-          "Sois professionnel, empathique et rassurant.";
-
-      await healthProvider.analyzeSymptoms(
-        "Message du patient : $text",
-        systemContext: systemPersona,
+      // ── Appel IA isolé — n'affecte PAS le chat principal ──
+      final response = await hp.analyzeForVoiceConsultation(
+        text,
+        _localHistory,
+        _doctorPersona,
       );
 
       if (!mounted) return;
-
-      final lastMsg = healthProvider.messages.last['content'] ??
-          "Je n'ai pas pu analyser cela. Pouvez-vous répéter ?";
-
-      _setAvatarState(AvatarState.speaking,
-          statusText: "${widget.doctor.name} répond...");
-      await _flutterTts.speak(lastMsg);
+      _setState2(
+        AvatarState.speaking,
+        status: '${widget.doctor.name} répond...',
+      );
+      await _tts.speak(response);
     } catch (e) {
       if (mounted) {
-        _setAvatarState(AvatarState.idle,
-            statusText: "Problème de connexion.");
+        _setState2(AvatarState.idle, status: 'Problème de connexion.');
       }
     }
   }
 
-  Color _getDoctorAccentColor() {
-    final Map<String, Color> colors = {
-      '1': const Color(0xFF42A5F5), // Cardiologue - bleu
-      '2': const Color(0xFF66BB6A), // Généraliste - vert
-      '3': const Color(0xFF4DD0E1), // Nutritionniste - cyan
-      '4': const Color(0xFF7C4DFF), // Psychiatre - violet
-      '5': const Color(0xFFF48FB1), // Dermatologue - rose
-      '6': const Color(0xFF00ACC1), // Endocrinologue - teal
-      '7': const Color(0xFFFFD54F), // Psychologue - jaune
-      '8': const Color(0xFF78909C), // Ophtalmologue - bleu-gris
+  // ─────────────────────────────────────────────────────
+  //  UI
+  // ─────────────────────────────────────────────────────
+  Color get _accent {
+    const colors = {
+      '1': Color(0xFF42A5F5),
+      '2': Color(0xFF66BB6A),
+      '3': Color(0xFF4DD0E1),
+      '4': Color(0xFF7C4DFF),
+      '5': Color(0xFFF48FB1),
+      '6': Color(0xFF00ACC1),
+      '7': Color(0xFFFFD54F),
+      '8': Color(0xFF78909C),
     };
-    return colors[widget.doctor.id] ?? Theme.of(context).primaryColor;
+    return colors[widget.doctor.id] ?? Colors.blueAccent;
   }
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = _getDoctorAccentColor();
-
+    final accent = _accent;
     return Scaffold(
       backgroundColor: const Color(0xFF070B14),
       body: Stack(
         children: [
-          // Animated background
+          // Fond animé
           AnimatedBuilder(
-            animation: _backgroundPulse,
-            builder: (context, _) => Container(
+            animation: _bgPulse,
+            builder: (_, __) => Container(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.2),
                   radius: 1.5,
                   colors: [
-                    accentColor.withOpacity(0.08 + _backgroundPulse.value * 0.05),
+                    accent.withValues(alpha: 0.07 + _bgPulse.value * 0.05),
                     Colors.transparent,
                   ],
                 ),
@@ -246,185 +234,127 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
             ),
           ),
 
-          // Grid lines background (tech feel)
-          CustomPaint(
-            painter: _GridPainter(accentColor),
-            size: Size.infinite,
-          ),
+          // Grille cyberpunk
+          CustomPaint(painter: _GridPainter(accent), size: Size.infinite),
 
-          // Main content
           SafeArea(
             child: Column(
               children: [
-                // Top bar
+                // Barre top
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.close_rounded,
-                            color: Colors.white70, size: 28),
-                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white70,
+                          size: 26,
+                        ),
+                        onPressed: () {
+                          _tts.stop();
+                          Navigator.pop(context);
+                        },
                       ),
                       const Spacer(),
-                      // Live indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                      color: Colors.redAccent.withOpacity(0.6),
-                                      blurRadius: 6,
-                                      spreadRadius: 2)
-                                ],
-                              ),
-                            ).animate(onPlay: (c) => c.repeat(reverse: true))
-                                .scale(
-                                    begin: const Offset(1, 1),
-                                    end: const Offset(1.5, 1.5),
-                                    duration: 800.ms),
-                            const SizedBox(width: 6),
-                            const Text(
-                              "EN LIGNE",
-                              style: TextStyle(
-                                  color: Colors.redAccent,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildLiveIndicator(),
                     ],
                   ),
                 ),
 
-                // Doctor avatar (main focus)
+                // Avatar
                 Expanded(
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Pulsing rings behind avatar
                         Stack(
                           alignment: Alignment.center,
                           children: [
-                            if (_currentState == AvatarState.speaking ||
-                                _currentState == AvatarState.listening)
-                              ...List.generate(3, (i) => AnimatedBuilder(
-                                animation: _backgroundPulse,
-                                builder: (_, __) => Container(
-                                  width: 260 + i * 50.0,
-                                  height: 260 + i * 50.0,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: accentColor.withOpacity(
-                                          0.15 - i * 0.04),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ).animate(onPlay: (c) => c.repeat())
-                                    .scale(
-                                        begin: const Offset(0.85, 0.85),
-                                        end: const Offset(1.2, 1.2),
-                                        duration: (1800 + i * 300).ms,
-                                        curve: Curves.easeInOut)
-                                    .fadeOut(duration: 1.5.seconds),
-                              )),
-
-                            // THE AVATAR
+                            // Anneaux de pulsation
+                            if (_state == AvatarState.speaking ||
+                                _state == AvatarState.listening)
+                              ...List.generate(3, (i) => _pulseRing(accent, i)),
+                            // Avatar 3D
                             DoctorAvatarWidget(
-                              doctorId: widget.doctor.id,
-                              gender: widget.doctor.gender,
-                              avatarState: _avatarStateString,
-                              size: 240,
-                            ).animate().fadeIn(delay: 200.ms).scale(
-                                begin: const Offset(0.8, 0.8),
-                                end: const Offset(1, 1),
-                                duration: 600.ms,
-                                curve: Curves.elasticOut),
+                                  doctorId: widget.doctor.id,
+                                  gender: widget.doctor.gender,
+                                  avatarState: _state.name,
+                                  size: 230,
+                                )
+                                .animate()
+                                .fadeIn(delay: 200.ms)
+                                .scale(
+                                  begin: const Offset(0.8, 0.8),
+                                  end: const Offset(1, 1),
+                                  duration: 600.ms,
+                                  curve: Curves.elasticOut,
+                                ),
                           ],
                         ),
-
-                        const SizedBox(height: 32),
-
-                        // Doctor info
+                        const SizedBox(height: 28),
                         Text(
                           widget.doctor.name,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 21,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
                           ),
-                        ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2, end: 0),
-
+                        ).animate().fadeIn(delay: 300.ms),
                         const SizedBox(height: 6),
-
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 5),
+                            horizontal: 14,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.15),
+                            color: accent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: accentColor.withOpacity(0.4)),
+                              color: accent.withValues(alpha: 0.4),
+                            ),
                           ),
                           child: Text(
                             widget.doctor.specialty.toUpperCase(),
                             style: TextStyle(
-                              color: accentColor,
+                              color: accent,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.8,
                             ),
                           ),
                         ).animate().fadeIn(delay: 400.ms),
-
-                        const SizedBox(height: 28),
-
+                        const SizedBox(height: 24),
                         // Status pill
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                  opacity: animation,
-                                  child: ScaleTransition(
-                                      scale: animation, child: child)),
+                          duration: 300.ms,
                           child: Container(
                             key: ValueKey(_statusText),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
+                              horizontal: 18,
+                              vertical: 9,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
+                              color: Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(30),
-                              border:
-                                  Border.all(color: Colors.white.withOpacity(0.1)),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _buildStateIndicator(accentColor),
+                                _statusDot(accent),
                                 const SizedBox(width: 10),
                                 Text(
                                   _statusText,
                                   style: const TextStyle(
-                                      color: Colors.white70, fontSize: 14),
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ],
                             ),
@@ -435,10 +365,76 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                   ),
                 ),
 
-                // Bottom action area
+                // Bouton micro
                 Padding(
                   padding: const EdgeInsets.only(bottom: 40),
-                  child: _buildActionArea(accentColor),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (_state == AvatarState.listening) {
+                            _stopListening();
+                          } else if (_state == AvatarState.idle) {
+                            _startListening();
+                          }
+                        },
+                        child: AnimatedBuilder(
+                          animation: _micPulse,
+                          builder: (_, __) {
+                            final listening = _state == AvatarState.listening;
+                            final scale = listening
+                                ? 1.0 + _micPulse.value * 0.12
+                                : 1.0;
+                            return Transform.scale(
+                              scale: scale,
+                              child: Container(
+                                width: 76,
+                                height: 76,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: listening
+                                      ? Colors.redAccent.withValues(alpha: 0.2)
+                                      : accent.withValues(alpha: 0.1),
+                                  border: Border.all(
+                                    color: listening
+                                        ? Colors.redAccent
+                                        : accent,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          (listening
+                                                  ? Colors.redAccent
+                                                  : accent)
+                                              .withValues(alpha: 0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  listening ? Icons.mic : Icons.mic_none,
+                                  color: listening ? Colors.redAccent : accent,
+                                  size: 32,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'MODE MAINS-LIBRES',
+                        style: TextStyle(
+                          color: Colors.white24,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -448,116 +444,119 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
     );
   }
 
-  Widget _buildStateIndicator(Color accent) {
-    Color color = Colors.greenAccent;
-    if (_currentState == AvatarState.thinking) color = Colors.orange;
-    if (_currentState == AvatarState.listening) color = Colors.redAccent;
-    if (_currentState == AvatarState.speaking) color = accent;
-
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: color.withOpacity(0.6), blurRadius: 8, spreadRadius: 2)
-        ],
-      ),
-    ).animate(onPlay: (c) => c.repeat(reverse: true))
-        .scale(
-            begin: const Offset(1, 1),
-            end: const Offset(1.6, 1.6),
-            duration: 700.ms);
-  }
-
-  Widget _buildActionArea(Color accentColor) {
-    return Column(
+  Widget _buildLiveIndicator() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.red.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: () {
-            if (_currentState == AvatarState.listening) {
-              _stopListening();
-            } else if (_currentState == AvatarState.idle) {
-              _startListening();
-            }
-          },
-          child: AnimatedBuilder(
-            animation: _micPulseController,
-            builder: (context, child) {
-              final isListening = _currentState == AvatarState.listening;
-              final scale = isListening
-                  ? 1.0 + _micPulseController.value * 0.12
-                  : 1.0;
-              return Transform.scale(
-                scale: scale,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isListening
-                        ? Colors.redAccent.withOpacity(0.2)
-                        : accentColor.withOpacity(0.1),
-                    border: Border.all(
-                      color: isListening ? Colors.redAccent : accentColor,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isListening
-                            ? Colors.redAccent.withOpacity(0.3)
-                            : accentColor.withOpacity(0.2),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      )
-                    ],
+        Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.redAccent.withValues(alpha: 0.6),
+                    blurRadius: 6,
+                    spreadRadius: 2,
                   ),
-                  child: Icon(
-                    isListening ? Icons.mic : Icons.mic_none,
-                    color: isListening ? Colors.redAccent : accentColor,
-                    size: 35,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          _isAutoListening ? "MODE MAINS-LIBRES" : "APPUYEZ POUR PARLER",
-          style: const TextStyle(
-            color: Colors.white24,
+                ],
+              ),
+            )
+            .animate(onPlay: (c) => c.repeat(reverse: true))
+            .scale(
+              begin: const Offset(1, 1),
+              end: const Offset(1.5, 1.5),
+              duration: 800.ms,
+            ),
+        const SizedBox(width: 6),
+        const Text(
+          'EN LIGNE',
+          style: TextStyle(
+            color: Colors.redAccent,
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
           ),
         ),
       ],
-    );
+    ),
+  );
+
+  Widget _pulseRing(Color accent, int i) =>
+      Container(
+            width: 250 + i * 48.0,
+            height: 250 + i * 48.0,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: accent.withValues(alpha: 0.14 - i * 0.04),
+                width: 1.5,
+              ),
+            ),
+          )
+          .animate(onPlay: (c) => c.repeat())
+          .scale(
+            begin: const Offset(0.85, 0.85),
+            end: const Offset(1.2, 1.2),
+            duration: Duration(milliseconds: 1800 + i * 300),
+            curve: Curves.easeInOut,
+          )
+          .fadeOut(duration: 1500.ms);
+
+  Widget _statusDot(Color accent) {
+    Color color = Colors.greenAccent;
+    if (_state == AvatarState.thinking) color = Colors.orange;
+    if (_state == AvatarState.listening) color = Colors.redAccent;
+    if (_state == AvatarState.speaking) color = accent;
+    return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.6),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+        )
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scale(
+          begin: const Offset(1, 1),
+          end: const Offset(1.6, 1.6),
+          duration: 700.ms,
+        );
   }
 }
 
-/// Background grid painter for cyberpunk feel
 class _GridPainter extends CustomPainter {
-  final Color accentColor;
-  _GridPainter(this.accentColor);
+  final Color accent;
+  _GridPainter(this.accent);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = accentColor.withOpacity(0.04)
+      ..color = accent.withValues(alpha: 0.04)
       ..strokeWidth = 1;
-
-    const spacing = 40.0;
-    for (double x = 0; x < size.width; x += spacing) {
+    const step = 40.0;
+    for (double x = 0; x < size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = 0; y < size.height; y += spacing) {
+    for (double y = 0; y < size.height; y += step) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_GridPainter oldDelegate) => false;
+  bool shouldRepaint(_GridPainter old) => false;
 }
