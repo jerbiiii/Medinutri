@@ -25,7 +25,7 @@ class HealthProvider with ChangeNotifier {
 
   List<Doctor> _doctors = [];
   bool _isLoadingDoctors = false;
-  
+
   List<Doctor> get doctors => _doctors;
   bool get isLoadingDoctors => _isLoadingDoctors;
 
@@ -398,8 +398,11 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
       if (!forceRefresh) {
         final rows = await db.query('ai_doctors');
         if (rows.isNotEmpty) {
-          final firstDate = DateTime.tryParse(rows.first['created_at'] as String? ?? '');
-          if (firstDate != null && DateTime.now().difference(firstDate).inDays < 7) {
+          final firstDate = DateTime.tryParse(
+            rows.first['created_at'] as String? ?? '',
+          );
+          if (firstDate != null &&
+              DateTime.now().difference(firstDate).inDays < 7) {
             _doctors = rows.map((r) => Doctor.fromMap(r)).toList();
             _isLoadingDoctors = false;
             notifyListeners();
@@ -412,15 +415,16 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
           ? 'Basé sur les derniers symptômes du patient : ${_messages.last['content']}'
           : 'App généraliste de télémédecine';
 
-      final prompt = '''Génère une liste de 8 médecins fictifs pour une app de télémédecine tunisienne.
+      final prompt =
+          '''Génère une liste de 8 médecins fictifs pour une app de télémédecine tunisienne.
 $symptomContext
-
+ 
 Règles :
 - Noms maghrébins/français réalistes
 - Spécialités variées
 - Genre mixte (4 hommes, 4 femmes)
 - Notes réalistes entre 4.5 et 5.0
-
+ 
 FORMAT JSON STRICT — UNIQUEMENT CE JSON :
 {"doctors":[{"id":"1","name":"Dr. Prénom Nom","specialty":"Spécialité médicale","rating":"4.8","gender":"male"},{"id":"2","name":"Dr. Prénom Nom","specialty":"Spécialité","rating":"4.9","gender":"female"}]}''';
 
@@ -429,7 +433,9 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
         customSystemPrompt: prompt,
       );
 
-      if (response == null || response.startsWith('__') || response.startsWith('Erreur')) {
+      if (response == null ||
+          response.startsWith('__') ||
+          response.startsWith('Erreur')) {
         _isLoadingDoctors = false;
         notifyListeners();
         return;
@@ -446,24 +452,35 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
       final now = DateTime.now().toIso8601String();
       final generated = <Doctor>[];
 
+      // FIX: vider la table avant de réinsérer
       await db.delete('ai_doctors');
+
       for (final d in doctorsList) {
         final map = Map<String, dynamic>.from(d as Map);
         final gender = map['gender'] as String? ?? 'male';
-        final id = map['id'] as String? ?? '${generated.length + 1}';
-        final imageUrl = 'https://i.pravatar.cc/150?u=doctor_${id}_$gender';
+        final doctorId = map['id'] as String? ?? '${generated.length + 1}';
+        final imageUrl =
+            'https://i.pravatar.cc/150?u=doctor_${doctorId}_$gender';
 
         final doctor = Doctor(
-          id: id,
+          id: doctorId,
           name: map['name'] as String,
           specialty: map['specialty'] as String,
-          rating: map['rating'] as String,
+          rating: map['rating'] as String? ?? '4.5',
           imageUrl: imageUrl,
           gender: gender,
         );
         generated.add(doctor);
+
+        // FIX: inclure doctor_id explicitement dans l'insert
+        // (séparé de id qui est l'auto-increment SQLite)
         await db.insert('ai_doctors', {
-          ...doctor.toMap(),
+          'doctor_id': doctorId, // ← colonne doctor_id = string IA
+          'name': doctor.name,
+          'specialty': doctor.specialty,
+          'rating': doctor.rating,
+          'image_url': doctor.imageUrl,
+          'gender': doctor.gender,
           'created_at': now,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
@@ -497,7 +514,9 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
       customSystemPrompt: summaryPrompt,
     );
 
-    if (summary == null || summary.startsWith('__') || summary.startsWith('Erreur')) {
+    if (summary == null ||
+        summary.startsWith('__') ||
+        summary.startsWith('Erreur')) {
       return 'Dernière consultation disponible. Une consultation vidéo est recommandée.';
     }
     return summary.replaceAll('"', '').trim();

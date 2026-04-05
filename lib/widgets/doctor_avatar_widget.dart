@@ -1,10 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  DOCTOR AVATAR WIDGET â€” Pseudo-3D with spherical shading & fluid animations
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 class DoctorAvatarWidget extends StatefulWidget {
   final String doctorId;
   final String gender;
@@ -26,13 +22,13 @@ class DoctorAvatarWidget extends StatefulWidget {
 class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
     with TickerProviderStateMixin {
   // â”€â”€ Animation Controllers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  late AnimationController _floatCtrl;   // Idle floating Y offset
-  late AnimationController _breathCtrl;  // Subtle body breath scale
-  late AnimationController _blinkCtrl;   // Eye blink
-  late AnimationController _mouthCtrl;   // Lip-sync speaking
-  late AnimationController _waveCtrl;    // Hand wave
-  late AnimationController _headCtrl;    // Head nod / tilt
-  late AnimationController _thinkCtrl;   // Thinking eye roll
+  late AnimationController _floatCtrl; // Idle floating Y offset
+  late AnimationController _breathCtrl; // Subtle body breath scale
+  late AnimationController _blinkCtrl; // Eye blink
+  late AnimationController _mouthCtrl; // Lip-sync speaking
+  late AnimationController _waveCtrl; // Hand wave
+  late AnimationController _headCtrl; // Head nod / tilt
+  late AnimationController _thinkCtrl; // Thinking eye roll
 
   // â”€â”€ Derived animated values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   late Animation<double> _floatAnim;
@@ -48,36 +44,52 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
     super.initState();
 
     // Float: âˆ’8 â†’ +8 px, 3.8s
-    _floatCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 3800))
-      ..repeat(reverse: true);
+    _floatCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3800),
+    )..repeat(reverse: true);
     _floatAnim = CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut);
 
     // Breath: scale 1.0 â†’ 1.018, 2.6s
-    _breathCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))
-      ..repeat(reverse: true);
+    _breathCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat(reverse: true);
     _breathAnim = CurvedAnimation(parent: _breathCtrl, curve: Curves.easeInOut);
 
     // Blink: instant close/open
-    _blinkCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 130));
+    _blinkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 130),
+    );
     _blinkAnim = CurvedAnimation(parent: _blinkCtrl, curve: Curves.easeInOut);
 
     // Mouth: opens & closes when speaking
-    _mouthCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
+    _mouthCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     _mouthAnim = CurvedAnimation(parent: _mouthCtrl, curve: Curves.easeInOut);
 
     // Wave arm rotation
-    _waveCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 550))
-      ..repeat(reverse: true);
+    _waveCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    )..repeat(reverse: true);
     _waveAnim = CurvedAnimation(parent: _waveCtrl, curve: Curves.easeInOut);
 
     // Head tilt for listening/nodding
-    _headCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 950))
-      ..repeat(reverse: true);
+    _headCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    )..repeat(reverse: true);
     _headAnim = CurvedAnimation(parent: _headCtrl, curve: Curves.easeInOut);
 
     // Thinking: repeating eye-swivel
-    _thinkCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))
-      ..repeat(reverse: true);
+    _thinkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
     _thinkAnim = CurvedAnimation(parent: _thinkCtrl, curve: Curves.easeInOut);
 
     _scheduleRandomBlink();
@@ -155,8 +167,13 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
 
     return AnimatedBuilder(
       animation: Listenable.merge([
-        _floatAnim, _breathAnim, _blinkAnim,
-        _mouthAnim, _waveAnim, _headAnim, _thinkAnim,
+        _floatAnim,
+        _breathAnim,
+        _blinkAnim,
+        _mouthAnim,
+        _waveAnim,
+        _headAnim,
+        _thinkAnim,
       ]),
       builder: (ctx, _) {
         final floatOffset = (_floatAnim.value - 0.5) * 16.0; // âˆ’8..+8 px
@@ -180,10 +197,12 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
         double mouthOpen = _mouthAnim.value;
         if (widget.avatarState == 'speaking') {
           final t = _mouthCtrl.value * 2 * math.pi;
-          mouthOpen = (math.sin(t) * 0.55 + math.sin(2.1 * t) * 0.28 +
-                  math.sin(3.7 * t) * 0.17)
-              .abs()
-              .clamp(0.0, 1.0);
+          mouthOpen =
+              (math.sin(t) * 0.55 +
+                      math.sin(2.1 * t) * 0.28 +
+                      math.sin(3.7 * t) * 0.17)
+                  .abs()
+                  .clamp(0.0, 1.0);
         }
 
         return Transform.translate(
@@ -271,7 +290,12 @@ class _DoctorPainter3D extends CustomPainter {
   });
 
   // â”€â”€ Sphere paint helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  Paint _sphere(Color base, Rect bounds, {double lightStr = 0.5, double shadowStr = 0.38}) {
+  Paint _sphere(
+    Color base,
+    Rect bounds, {
+    double lightStr = 0.5,
+    double shadowStr = 0.38,
+  }) {
     final hi = Color.lerp(base, Colors.white, lightStr)!;
     final sh = Color.lerp(base, const Color(0xFF0A0500), shadowStr)!;
     return Paint()
@@ -290,7 +314,10 @@ class _DoctorPainter3D extends CustomPainter {
       r,
       Paint()
         ..shader = RadialGradient(
-          colors: [Colors.white.withValues(alpha: opacity), Colors.transparent],
+          colors: [
+            Colors.white.withValues(alpha: opacity),
+            Colors.transparent,
+          ],
         ).createShader(Rect.fromCircle(center: center, radius: r)),
     );
   }
@@ -333,21 +360,35 @@ class _DoctorPainter3D extends CustomPainter {
   }
 
   // â”€â”€ BODY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  void _drawBody(Canvas canvas, Size size, double cx, double headCY, double headR) {
+  void _drawBody(
+    Canvas canvas,
+    Size size,
+    double cx,
+    double headCY,
+    double headR,
+  ) {
     final shoulderY = headCY + headR * 0.85;
     final bottomY = size.height * 0.98;
     final shoulderW = headR * 1.55;
 
     // Ambient occlusion under neck
-    _softShadow(canvas,
-      Rect.fromCenter(center: Offset(cx, shoulderY), width: headR * 1.0, height: headR * 0.3),
-      blur: 10, color: Colors.black.withValues(alpha: 0.25),
+    _softShadow(
+      canvas,
+      Rect.fromCenter(
+        center: Offset(cx, shoulderY),
+        width: headR * 1.0,
+        height: headR * 0.3,
+      ),
+      blur: 10,
+      color: Colors.black.withValues(alpha: 0.25),
     );
 
     // Coat body â€” trapezoidal
     final bodyRect = Rect.fromLTRB(
-      cx - shoulderW, shoulderY,
-      cx + shoulderW, bottomY,
+      cx - shoulderW,
+      shoulderY,
+      cx + shoulderW,
+      bottomY,
     );
     final bodyPath = Path()
       ..moveTo(cx - shoulderW, shoulderY)
@@ -356,7 +397,10 @@ class _DoctorPainter3D extends CustomPainter {
       ..lineTo(cx + shoulderW, shoulderY)
       ..close();
 
-    canvas.drawPath(bodyPath, _sphere(appearance.coatColor, bodyRect, lightStr: 0.22, shadowStr: 0.28));
+    canvas.drawPath(
+      bodyPath,
+      _sphere(appearance.coatColor, bodyRect, lightStr: 0.22, shadowStr: 0.28),
+    );
 
     // Coat inner â€” shirt
     final collarPath = Path()
@@ -366,7 +410,10 @@ class _DoctorPainter3D extends CustomPainter {
       ..lineTo(cx + headR * 0.25, shoulderY + headR * 1.2)
       ..lineTo(cx + headR * 0.5, shoulderY + headR * 0.55)
       ..close();
-    canvas.drawPath(collarPath, Paint()..color = Colors.white.withValues(alpha: 0.9));
+    canvas.drawPath(
+      collarPath,
+      Paint()..color = Colors.white.withValues(alpha: 0.9),
+    );
 
     // Stethoscope
     final sp = Paint()
@@ -377,9 +424,12 @@ class _DoctorPainter3D extends CustomPainter {
     final stethPath = Path()
       ..moveTo(cx - headR * 0.25, shoulderY + headR * 0.35)
       ..cubicTo(
-        cx - headR * 0.55, shoulderY + headR,
-        cx + headR * 0.2, shoulderY + headR * 1.05,
-        cx + headR * 0.05, shoulderY + headR * 1.42 + breathVal * 2,
+        cx - headR * 0.55,
+        shoulderY + headR,
+        cx + headR * 0.2,
+        shoulderY + headR * 1.05,
+        cx + headR * 0.05,
+        shoulderY + headR * 1.42 + breathVal * 2,
       );
     canvas.drawPath(stethPath, sp);
     canvas.drawCircle(
@@ -401,11 +451,24 @@ class _DoctorPainter3D extends CustomPainter {
 
     // Name badge
     final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx + headR * 0.65, shoulderY + headR * 0.5), width: headR * 0.65, height: headR * 0.32),
+      Rect.fromCenter(
+        center: Offset(cx + headR * 0.65, shoulderY + headR * 0.5),
+        width: headR * 0.65,
+        height: headR * 0.32,
+      ),
       const Radius.circular(4),
     );
-    canvas.drawRRect(badgeRect, Paint()..color = Colors.white.withValues(alpha: 0.85));
-    canvas.drawRRect(badgeRect, Paint()..color = appearance.accentColor..style = PaintingStyle.stroke..strokeWidth = 1.2);
+    canvas.drawRRect(
+      badgeRect,
+      Paint()..color = Colors.white.withValues(alpha: 0.85),
+    );
+    canvas.drawRRect(
+      badgeRect,
+      Paint()
+        ..color = appearance.accentColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
   }
 
   // â”€â”€ NECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -415,7 +478,10 @@ class _DoctorPainter3D extends CustomPainter {
       width: headR * 0.72,
       height: headR * 0.38,
     );
-    canvas.drawOval(neckRect, _sphere(appearance.skinColor, neckRect, lightStr: 0.32, shadowStr: 0.22));
+    canvas.drawOval(
+      neckRect,
+      _sphere(appearance.skinColor, neckRect, lightStr: 0.32, shadowStr: 0.22),
+    );
   }
 
   // â”€â”€ EARS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -423,11 +489,22 @@ class _DoctorPainter3D extends CustomPainter {
     for (var side in [-1.0, 1.0]) {
       final ex = cx + side * headR * 0.97;
       final ey = headCY + headR * 0.1;
-      final earRect = Rect.fromCenter(center: Offset(ex, ey), width: headR * 0.28, height: headR * 0.38);
-      canvas.drawOval(earRect, _sphere(appearance.skinColor, earRect, lightStr: 0.2, shadowStr: 0.3));
+      final earRect = Rect.fromCenter(
+        center: Offset(ex, ey),
+        width: headR * 0.28,
+        height: headR * 0.38,
+      );
+      canvas.drawOval(
+        earRect,
+        _sphere(appearance.skinColor, earRect, lightStr: 0.2, shadowStr: 0.3),
+      );
       // Inner ear
       canvas.drawOval(
-        Rect.fromCenter(center: Offset(ex + side * 1.5, ey), width: headR * 0.11, height: headR * 0.2),
+        Rect.fromCenter(
+          center: Offset(ex + side * 1.5, ey),
+          width: headR * 0.11,
+          height: headR * 0.2,
+        ),
         Paint()..color = Color.lerp(appearance.skinColor, Colors.black, 0.25)!,
       );
     }
@@ -448,15 +525,38 @@ class _DoctorPainter3D extends CustomPainter {
     canvas.drawOval(headRect.inflate(3), rimPaint);
 
     // The face oval â€” sphere-shaded
-    canvas.drawOval(headRect, _sphere(appearance.skinColor, headRect, lightStr: 0.48, shadowStr: 0.32));
+    canvas.drawOval(
+      headRect,
+      _sphere(appearance.skinColor, headRect, lightStr: 0.48, shadowStr: 0.32),
+    );
 
     // Forehead specular highlight
-    _specular(canvas, Offset(cx - headR * 0.15, headCY - headR * 0.58), headR * 0.22, opacity: 0.28);
+    _specular(
+      canvas,
+      Offset(cx - headR * 0.15, headCY - headR * 0.58),
+      headR * 0.22,
+      opacity: 0.28,
+    );
     // Nose tip specular
-    _specular(canvas, Offset(cx, headCY + headR * 0.22), headR * 0.08, opacity: 0.22);
+    _specular(
+      canvas,
+      Offset(cx, headCY + headR * 0.22),
+      headR * 0.08,
+      opacity: 0.22,
+    );
     // Cheek highlights
-    _specular(canvas, Offset(cx - headR * 0.4, headCY + headR * 0.15), headR * 0.14, opacity: 0.12);
-    _specular(canvas, Offset(cx + headR * 0.4, headCY + headR * 0.15), headR * 0.14, opacity: 0.12);
+    _specular(
+      canvas,
+      Offset(cx - headR * 0.4, headCY + headR * 0.15),
+      headR * 0.14,
+      opacity: 0.12,
+    );
+    _specular(
+      canvas,
+      Offset(cx + headR * 0.4, headCY + headR * 0.15),
+      headR * 0.14,
+      opacity: 0.12,
+    );
   }
 
   // â”€â”€ HAIR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -484,7 +584,8 @@ class _DoctorPainter3D extends CustomPainter {
         for (var s in [-1.0, 1.0]) {
           final tr = Rect.fromCenter(
             center: Offset(cx + s * headR * 0.92, headCY + headR * 0.05),
-            width: headR * 0.45, height: headR * 0.55,
+            width: headR * 0.45,
+            height: headR * 0.55,
           );
           canvas.drawOval(tr, hairGrad(tr));
         }
@@ -493,7 +594,8 @@ class _DoctorPainter3D extends CustomPainter {
       case HairstyleType.longWavy:
         final top = Rect.fromCenter(
           center: Offset(cx, headCY - headR * 0.18),
-          width: headR * 2.18, height: headR * 1.55,
+          width: headR * 2.18,
+          height: headR * 1.55,
         );
         canvas.drawOval(top, hairGrad(top));
         // Long side waves
@@ -501,35 +603,48 @@ class _DoctorPainter3D extends CustomPainter {
           final sidePath = Path();
           sidePath.moveTo(cx + s * headR * 0.98, headCY - headR * 0.1);
           sidePath.cubicTo(
-            cx + s * headR * 1.48, headCY + headR * 0.4,
-            cx + s * headR * 1.5, headCY + headR * 1.15,
-            cx + s * headR * 1.15, headCY + headR * 1.9,
+            cx + s * headR * 1.48,
+            headCY + headR * 0.4,
+            cx + s * headR * 1.5,
+            headCY + headR * 1.15,
+            cx + s * headR * 1.15,
+            headCY + headR * 1.9,
           );
           sidePath.cubicTo(
-            cx + s * headR * 0.85, headCY + headR * 1.7,
-            cx + s * headR * 0.88, headCY + headR * 1.2,
-            cx + s * headR * 0.98, headCY - headR * 0.1,
+            cx + s * headR * 0.85,
+            headCY + headR * 1.7,
+            cx + s * headR * 0.88,
+            headCY + headR * 1.2,
+            cx + s * headR * 0.98,
+            headCY - headR * 0.1,
           );
           canvas.drawPath(sidePath, Paint()..color = appearance.hairColor);
           // Wave strand highlight
           final wSrc = Rect.fromLTRB(
-            cx + s * headR * 0.85, headCY - headR * 0.1,
-            cx + s * headR * 1.5, headCY + headR * 1.9,
+            cx + s * headR * 0.85,
+            headCY - headR * 0.1,
+            cx + s * headR * 1.5,
+            headCY + headR * 1.9,
           );
-          canvas.drawPath(sidePath, hairGrad(wSrc)..blendMode = BlendMode.srcATop);
+          canvas.drawPath(
+            sidePath,
+            hairGrad(wSrc)..blendMode = BlendMode.srcATop,
+          );
         }
         break;
 
       case HairstyleType.medium:
         final top = Rect.fromCenter(
           center: Offset(cx, headCY - headR * 0.22),
-          width: headR * 2.14, height: headR * 1.52,
+          width: headR * 2.14,
+          height: headR * 1.52,
         );
         canvas.drawOval(top, hairGrad(top));
         for (var s in [-1.0, 1.0]) {
           final side = Rect.fromCenter(
             center: Offset(cx + s * headR * 0.96, headCY + headR * 0.2),
-            width: headR * 0.55, height: headR * 0.8,
+            width: headR * 0.55,
+            height: headR * 0.8,
           );
           canvas.drawOval(side, hairGrad(side));
         }
@@ -538,13 +653,16 @@ class _DoctorPainter3D extends CustomPainter {
       case HairstyleType.straight:
         final top = Rect.fromCenter(
           center: Offset(cx, headCY - headR * 0.2),
-          width: headR * 2.18, height: headR * 1.5,
+          width: headR * 2.18,
+          height: headR * 1.5,
         );
         canvas.drawOval(top, hairGrad(top));
         for (var s in [-1.0, 1.0]) {
           final r = Rect.fromLTRB(
-            cx + s * (headR * 0.88), headCY - headR * 0.05,
-            cx + s * (headR * 1.14), headCY + headR * 1.48,
+            cx + s * (headR * 0.88),
+            headCY - headR * 0.05,
+            cx + s * (headR * 1.14),
+            headCY + headR * 1.48,
           );
           canvas.drawRect(r, hairGrad(r));
         }
@@ -557,8 +675,15 @@ class _DoctorPainter3D extends CustomPainter {
           ..strokeWidth = 5
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
         canvas.drawArc(
-          Rect.fromCenter(center: Offset(cx, headCY + headR * 0.35), width: headR * 2.1, height: headR * 1.9),
-          math.pi * 0.68, math.pi * 1.64, false, baldPaint,
+          Rect.fromCenter(
+            center: Offset(cx, headCY + headR * 0.35),
+            width: headR * 2.1,
+            height: headR * 1.9,
+          ),
+          math.pi * 0.68,
+          math.pi * 1.64,
+          false,
+          baldPaint,
         );
         break;
 
@@ -569,7 +694,9 @@ class _DoctorPainter3D extends CustomPainter {
           final dx = math.cos(a) * headR * 0.82;
           final dy = math.sin(a) * headR * 0.7 - headR * 0.22;
           final pr = Rect.fromCenter(
-            center: Offset(cx + dx, headCY + dy), width: headR * 0.58, height: headR * 0.58,
+            center: Offset(cx + dx, headCY + dy),
+            width: headR * 0.58,
+            height: headR * 0.58,
           );
           canvas.drawOval(pr, hairGrad(pr));
         }
@@ -578,17 +705,24 @@ class _DoctorPainter3D extends CustomPainter {
       case HairstyleType.bun:
         final base = Rect.fromCenter(
           center: Offset(cx, headCY - headR * 0.2),
-          width: headR * 2.18, height: headR * 1.5,
+          width: headR * 2.18,
+          height: headR * 1.5,
         );
         canvas.drawOval(base, hairGrad(base));
         // Bun top
         final bunRect = Rect.fromCenter(
           center: Offset(cx, headCY - headR * 0.98),
-          width: headR * 0.72, height: headR * 0.72,
+          width: headR * 0.72,
+          height: headR * 0.72,
         );
         canvas.drawOval(bunRect, hairGrad(bunRect));
         // Bun highlight
-        _specular(canvas, Offset(cx - headR * 0.06, headCY - headR * 1.08), headR * 0.12, opacity: 0.35);
+        _specular(
+          canvas,
+          Offset(cx - headR * 0.06, headCY - headR * 1.08),
+          headR * 0.12,
+          opacity: 0.35,
+        );
         break;
     }
   }
@@ -616,8 +750,16 @@ class _DoctorPainter3D extends CustomPainter {
       ..color = appearance.skinColor
           .withRed((appearance.skinColor.red + 30).clamp(0, 255))
           .withValues(alpha: 0.28);
-    canvas.drawCircle(Offset(cx - headR * 0.52, cy + headR * 0.2), headR * 0.28, blushPaint);
-    canvas.drawCircle(Offset(cx + headR * 0.52, cy + headR * 0.2), headR * 0.28, blushPaint);
+    canvas.drawCircle(
+      Offset(cx - headR * 0.52, cy + headR * 0.2),
+      headR * 0.28,
+      blushPaint,
+    );
+    canvas.drawCircle(
+      Offset(cx + headR * 0.52, cy + headR * 0.2),
+      headR * 0.28,
+      blushPaint,
+    );
   }
 
   void _drawEyebrows(Canvas canvas, double cx, double cy, double r) {
@@ -634,9 +776,12 @@ class _DoctorPainter3D extends CustomPainter {
     final lbPath = Path()
       ..moveTo(cx - r * 0.54, eyeY - r * 0.38 - liftL)
       ..cubicTo(
-        cx - r * 0.28, eyeY - r * 0.48 - liftL,
-        cx - r * 0.04, eyeY - r * 0.44 - liftL,
-        cx - r * 0.02, eyeY - r * 0.4 - liftL,
+        cx - r * 0.28,
+        eyeY - r * 0.48 - liftL,
+        cx - r * 0.04,
+        eyeY - r * 0.44 - liftL,
+        cx - r * 0.02,
+        eyeY - r * 0.4 - liftL,
       );
     canvas.drawPath(lbPath, browPaint);
 
@@ -644,9 +789,12 @@ class _DoctorPainter3D extends CustomPainter {
     final rbPath = Path()
       ..moveTo(cx + r * 0.02, eyeY - r * 0.4)
       ..cubicTo(
-        cx + r * 0.04, eyeY - r * 0.44,
-        cx + r * 0.28, eyeY - r * 0.48,
-        cx + r * 0.54, eyeY - r * 0.38,
+        cx + r * 0.04,
+        eyeY - r * 0.44,
+        cx + r * 0.28,
+        eyeY - r * 0.48,
+        cx + r * 0.54,
+        eyeY - r * 0.38,
       );
     canvas.drawPath(rbPath, browPaint);
   }
@@ -661,7 +809,11 @@ class _DoctorPainter3D extends CustomPainter {
 
     for (var ex in [lEyeX, rEyeX]) {
       final center = Offset(ex + svX, eyeY);
-      final scleraRect = Rect.fromCenter(center: center, width: eyeRx * 2.6, height: eyeRy * 2.5);
+      final scleraRect = Rect.fromCenter(
+        center: center,
+        width: eyeRx * 2.6,
+        height: eyeRy * 2.5,
+      );
 
       // Sclera with slight eye-socket shadow
       final scleraPaint = Paint()
@@ -673,7 +825,11 @@ class _DoctorPainter3D extends CustomPainter {
       canvas.drawOval(scleraRect, scleraPaint);
 
       // Iris 3D gradient
-      final irisRect = Rect.fromCenter(center: center, width: eyeRx * 1.9, height: eyeRy * 1.9);
+      final irisRect = Rect.fromCenter(
+        center: center,
+        width: eyeRx * 1.9,
+        height: eyeRy * 1.9,
+      );
       canvas.drawOval(
         irisRect,
         Paint()
@@ -696,32 +852,54 @@ class _DoctorPainter3D extends CustomPainter {
       );
 
       // Main specular highlight
-      _specular(canvas, Offset(center.dx - eyeRx * 0.28, eyeY - eyeRy * 0.35), eyeRx * 0.28, opacity: 0.85);
+      _specular(
+        canvas,
+        Offset(center.dx - eyeRx * 0.28, eyeY - eyeRy * 0.35),
+        eyeRx * 0.28,
+        opacity: 0.85,
+      );
       // Secondary smaller highlight
-      _specular(canvas, Offset(center.dx + eyeRx * 0.18, eyeY + eyeRy * 0.2), eyeRx * 0.12, opacity: 0.45);
+      _specular(
+        canvas,
+        Offset(center.dx + eyeRx * 0.18, eyeY + eyeRy * 0.2),
+        eyeRx * 0.12,
+        opacity: 0.45,
+      );
 
       // Sclera outline
-      canvas.drawOval(scleraRect, Paint()
-        ..color = Colors.black.withValues(alpha: 0.12)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8);
+      canvas.drawOval(
+        scleraRect,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.12)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8,
+      );
 
       // Eyelid blink (top lid comes down)
       if (eyeCloseVal > 0.01) {
         final lidH = eyeRy * 2.5 * eyeCloseVal;
         canvas.drawRect(
           Rect.fromLTRB(
-            center.dx - eyeRx * 1.3, center.dy - eyeRy * 1.25,
-            center.dx + eyeRx * 1.3, center.dy - eyeRy * 1.25 + lidH,
+            center.dx - eyeRx * 1.3,
+            center.dy - eyeRy * 1.25,
+            center.dx + eyeRx * 1.3,
+            center.dy - eyeRy * 1.25 + lidH,
           ),
-          Paint()..color = Color.lerp(appearance.skinColor, Colors.black, 0.08)!,
+          Paint()
+            ..color = Color.lerp(appearance.skinColor, Colors.black, 0.08)!,
         );
       }
 
       // Upper lash line
       canvas.drawArc(
-        Rect.fromCenter(center: center, width: eyeRx * 2.65, height: eyeRy * 2.5),
-        -math.pi, math.pi, false,
+        Rect.fromCenter(
+          center: center,
+          width: eyeRx * 2.65,
+          height: eyeRy * 2.5,
+        ),
+        -math.pi,
+        math.pi,
+        false,
         Paint()
           ..color = Colors.black.withValues(alpha: 0.7)
           ..style = PaintingStyle.stroke
@@ -742,17 +920,38 @@ class _DoctorPainter3D extends CustomPainter {
     // Bridge
     final bridgePath = Path()
       ..moveTo(cx, cy - r * 0.06)
-      ..cubicTo(cx - r * 0.06, noseY, cx - r * 0.08, noseY + r * 0.08, cx - r * 0.14, noseY + r * 0.14);
+      ..cubicTo(
+        cx - r * 0.06,
+        noseY,
+        cx - r * 0.08,
+        noseY + r * 0.08,
+        cx - r * 0.14,
+        noseY + r * 0.14,
+      );
     canvas.drawPath(bridgePath, nosePaint);
 
     // Nostrils
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(cx - r * 0.14, noseY + r * 0.16), width: r * 0.22, height: r * 0.16),
-      0, math.pi * 1.4, false, nosePaint,
+      Rect.fromCenter(
+        center: Offset(cx - r * 0.14, noseY + r * 0.16),
+        width: r * 0.22,
+        height: r * 0.16,
+      ),
+      0,
+      math.pi * 1.4,
+      false,
+      nosePaint,
     );
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(cx + r * 0.14, noseY + r * 0.16), width: r * 0.22, height: r * 0.16),
-      math.pi * -0.4, math.pi * 1.4, false, nosePaint,
+      Rect.fromCenter(
+        center: Offset(cx + r * 0.14, noseY + r * 0.16),
+        width: r * 0.22,
+        height: r * 0.16,
+      ),
+      math.pi * -0.4,
+      math.pi * 1.4,
+      false,
+      nosePaint,
     );
   }
 
@@ -762,51 +961,98 @@ class _DoctorPainter3D extends CustomPainter {
 
     if (openH > 1.5) {
       // â”€â”€ Open mouth (speaking) â”€â”€
-      final outerRect = Rect.fromCenter(center: Offset(cx, mouthY), width: r * 0.68, height: openH * 2.2);
+      final outerRect = Rect.fromCenter(
+        center: Offset(cx, mouthY),
+        width: r * 0.68,
+        height: openH * 2.2,
+      );
 
       // Inner mouth shadow
       canvas.drawOval(outerRect, Paint()..color = const Color(0xFF3A0A0A));
 
       // Teeth â€” upper
       canvas.drawRect(
-        Rect.fromLTWH(cx - r * 0.28, mouthY - openH * 0.85, r * 0.56, openH * 0.9),
+        Rect.fromLTWH(
+          cx - r * 0.28,
+          mouthY - openH * 0.85,
+          r * 0.56,
+          openH * 0.9,
+        ),
         Paint()..color = const Color(0xFFFFFAF5),
       );
 
       // Lips â€” upper
       final upperLipPaint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.lerp(appearance.skinColor, Colors.redAccent, 0.32)!,
-            Color.lerp(appearance.skinColor, Colors.red, 0.22)!,
-          ],
-        ).createShader(Rect.fromLTWH(cx - r * 0.36, mouthY - openH - r * 0.06, r * 0.72, r * 0.12));
+        ..shader =
+            LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.lerp(appearance.skinColor, Colors.redAccent, 0.32)!,
+                Color.lerp(appearance.skinColor, Colors.red, 0.22)!,
+              ],
+            ).createShader(
+              Rect.fromLTWH(
+                cx - r * 0.36,
+                mouthY - openH - r * 0.06,
+                r * 0.72,
+                r * 0.12,
+              ),
+            );
       final ulPath = Path()
         ..moveTo(cx - r * 0.36, mouthY - openH)
-        ..cubicTo(cx - r * 0.18, mouthY - openH - r * 0.1, cx + r * 0.18, mouthY - openH - r * 0.1, cx + r * 0.36, mouthY - openH)
-        ..cubicTo(cx + r * 0.38, mouthY - openH + r * 0.04, cx, mouthY - openH - r * 0.02, cx - r * 0.36, mouthY - openH)
+        ..cubicTo(
+          cx - r * 0.18,
+          mouthY - openH - r * 0.1,
+          cx + r * 0.18,
+          mouthY - openH - r * 0.1,
+          cx + r * 0.36,
+          mouthY - openH,
+        )
+        ..cubicTo(
+          cx + r * 0.38,
+          mouthY - openH + r * 0.04,
+          cx,
+          mouthY - openH - r * 0.02,
+          cx - r * 0.36,
+          mouthY - openH,
+        )
         ..close();
       canvas.drawPath(ulPath, upperLipPaint);
 
       // Lips â€” lower
       final lowerLipPaint = Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(0, -0.3),
-          radius: 0.8,
-          colors: [
-            Color.lerp(appearance.skinColor, Colors.pink, 0.35)!,
-            Color.lerp(appearance.skinColor, Colors.redAccent, 0.22)!,
-          ],
-        ).createShader(Rect.fromCenter(center: Offset(cx, mouthY + openH), width: r * 0.72, height: r * 0.16));
+        ..shader =
+            RadialGradient(
+              center: const Alignment(0, -0.3),
+              radius: 0.8,
+              colors: [
+                Color.lerp(appearance.skinColor, Colors.pink, 0.35)!,
+                Color.lerp(appearance.skinColor, Colors.redAccent, 0.22)!,
+              ],
+            ).createShader(
+              Rect.fromCenter(
+                center: Offset(cx, mouthY + openH),
+                width: r * 0.72,
+                height: r * 0.16,
+              ),
+            );
       canvas.drawOval(
-        Rect.fromCenter(center: Offset(cx, mouthY + openH * 0.9), width: r * 0.66, height: r * 0.13 + openH * 0.15),
+        Rect.fromCenter(
+          center: Offset(cx, mouthY + openH * 0.9),
+          width: r * 0.66,
+          height: r * 0.13 + openH * 0.15,
+        ),
         lowerLipPaint,
       );
 
       // Lip highlight
-      _specular(canvas, Offset(cx - r * 0.06, mouthY + openH * 0.9 - r * 0.02), r * 0.12, opacity: 0.22);
+      _specular(
+        canvas,
+        Offset(cx - r * 0.06, mouthY + openH * 0.9 - r * 0.02),
+        r * 0.12,
+        opacity: 0.22,
+      );
     } else {
       // â”€â”€ Closed mouth â”€â”€
       final lipColor = Color.lerp(
@@ -820,9 +1066,12 @@ class _DoctorPainter3D extends CustomPainter {
         final smilePath = Path()
           ..moveTo(cx - r * 0.28, mouthY - r * 0.02)
           ..cubicTo(
-            cx - r * 0.1, mouthY + r * 0.1,
-            cx + r * 0.1, mouthY + r * 0.1,
-            cx + r * 0.28, mouthY - r * 0.02,
+            cx - r * 0.1,
+            mouthY + r * 0.1,
+            cx + r * 0.1,
+            mouthY + r * 0.1,
+            cx + r * 0.28,
+            mouthY - r * 0.02,
           );
         canvas.drawPath(
           smilePath,
@@ -833,10 +1082,16 @@ class _DoctorPainter3D extends CustomPainter {
             ..strokeCap = StrokeCap.round,
         );
         // Mouth corners dimples
-        canvas.drawCircle(Offset(cx - r * 0.28, mouthY - r * 0.02), 2.5,
-            Paint()..color = lipColor.withValues(alpha: 0.5));
-        canvas.drawCircle(Offset(cx + r * 0.28, mouthY - r * 0.02), 2.5,
-            Paint()..color = lipColor.withValues(alpha: 0.5));
+        canvas.drawCircle(
+          Offset(cx - r * 0.28, mouthY - r * 0.02),
+          2.5,
+          Paint()..color = lipColor.withValues(alpha: 0.5),
+        );
+        canvas.drawCircle(
+          Offset(cx + r * 0.28, mouthY - r * 0.02),
+          2.5,
+          Paint()..color = lipColor.withValues(alpha: 0.5),
+        );
       } else {
         // Neutral
         canvas.drawLine(
@@ -867,15 +1122,42 @@ class _DoctorPainter3D extends CustomPainter {
 
     final beardPath = Path()
       ..moveTo(cx - r * 0.72, cy + r * 0.55)
-      ..cubicTo(cx - r * 0.95, cy + r, cx - r * 0.5, cy + r * 1.22, cx, cy + r * 1.18)
-      ..cubicTo(cx + r * 0.5, cy + r * 1.22, cx + r * 0.95, cy + r, cx + r * 0.72, cy + r * 0.55)
-      ..cubicTo(cx + r * 0.45, cy + r * 0.6, cx - r * 0.45, cy + r * 0.6, cx - r * 0.72, cy + r * 0.55)
+      ..cubicTo(
+        cx - r * 0.95,
+        cy + r,
+        cx - r * 0.5,
+        cy + r * 1.22,
+        cx,
+        cy + r * 1.18,
+      )
+      ..cubicTo(
+        cx + r * 0.5,
+        cy + r * 1.22,
+        cx + r * 0.95,
+        cy + r,
+        cx + r * 0.72,
+        cy + r * 0.55,
+      )
+      ..cubicTo(
+        cx + r * 0.45,
+        cy + r * 0.6,
+        cx - r * 0.45,
+        cy + r * 0.6,
+        cx - r * 0.72,
+        cy + r * 0.55,
+      )
       ..close();
     canvas.drawPath(beardPath, beardPaint);
   }
 
   // â”€â”€ ARMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  void _drawArms(Canvas canvas, Size size, double cx, double headCY, double headR) {
+  void _drawArms(
+    Canvas canvas,
+    Size size,
+    double cx,
+    double headCY,
+    double headR,
+  ) {
     final shoulderY = headCY + headR * 0.85;
     final coatLt = Color.lerp(appearance.coatColor, Colors.white, 0.28)!;
     final coatDk = Color.lerp(appearance.coatColor, Colors.black, 0.28)!;
@@ -893,7 +1175,8 @@ class _DoctorPainter3D extends CustomPainter {
 
     final handPaint = Paint()
       ..shader = RadialGradient(
-        center: _kLight, radius: 0.8,
+        center: _kLight,
+        radius: 0.8,
         colors: [
           Color.lerp(appearance.skinColor, Colors.white, 0.4)!,
           appearance.skinColor,
@@ -905,10 +1188,23 @@ class _DoctorPainter3D extends CustomPainter {
     final lShX = cx - headR * 1.35;
     final lHandX = lShX - headR * 0.18;
     final lHandY = shoulderY + headR * 1.65;
-    canvas.drawLine(Offset(lShX, shoulderY), Offset(lHandX, lHandY), armPaint(true));
-    final lHandRect = Rect.fromCenter(center: Offset(lHandX, lHandY), width: headR * 0.42, height: headR * 0.42);
+    canvas.drawLine(
+      Offset(lShX, shoulderY),
+      Offset(lHandX, lHandY),
+      armPaint(true),
+    );
+    final lHandRect = Rect.fromCenter(
+      center: Offset(lHandX, lHandY),
+      width: headR * 0.42,
+      height: headR * 0.42,
+    );
     canvas.drawOval(lHandRect, handPaint);
-    _specular(canvas, Offset(lHandX - headR * 0.06, lHandY - headR * 0.08), headR * 0.1, opacity: 0.35);
+    _specular(
+      canvas,
+      Offset(lHandX - headR * 0.06, lHandY - headR * 0.08),
+      headR * 0.1,
+      opacity: 0.35,
+    );
 
     // Right arm â€” waving or resting
     final rShX = cx + headR * 1.35;
@@ -932,10 +1228,16 @@ class _DoctorPainter3D extends CustomPainter {
       // Hand
       final hrect = Rect.fromCenter(
         center: Offset(handX, handY),
-        width: headR * 0.44, height: headR * 0.44,
+        width: headR * 0.44,
+        height: headR * 0.44,
       );
       canvas.drawOval(hrect, handPaint);
-      _specular(canvas, Offset(handX - headR * 0.06, handY - headR * 0.08), headR * 0.1, opacity: 0.38);
+      _specular(
+        canvas,
+        Offset(handX - headR * 0.06, handY - headR * 0.08),
+        headR * 0.1,
+        opacity: 0.38,
+      );
 
       // Fingers
       final fPaint = Paint()
@@ -947,7 +1249,10 @@ class _DoctorPainter3D extends CustomPainter {
         final fAngle = armAngle - math.pi * 0.3 + i * 0.22;
         canvas.drawLine(
           Offset(handX, handY),
-          Offset(handX + math.cos(fAngle) * headR * 0.32, handY + math.sin(fAngle) * headR * 0.32),
+          Offset(
+            handX + math.cos(fAngle) * headR * 0.32,
+            handY + math.sin(fAngle) * headR * 0.32,
+          ),
           fPaint,
         );
       }
@@ -955,10 +1260,23 @@ class _DoctorPainter3D extends CustomPainter {
       // Resting right arm
       final rHandX = rShX + headR * 0.18;
       final rHandY = shoulderY + headR * 1.65;
-      canvas.drawLine(Offset(rShX, shoulderY), Offset(rHandX, rHandY), armPaint(false));
-      final rHandRect = Rect.fromCenter(center: Offset(rHandX, rHandY), width: headR * 0.42, height: headR * 0.42);
+      canvas.drawLine(
+        Offset(rShX, shoulderY),
+        Offset(rHandX, rHandY),
+        armPaint(false),
+      );
+      final rHandRect = Rect.fromCenter(
+        center: Offset(rHandX, rHandY),
+        width: headR * 0.42,
+        height: headR * 0.42,
+      );
       canvas.drawOval(rHandRect, handPaint);
-      _specular(canvas, Offset(rHandX - headR * 0.06, rHandY - headR * 0.08), headR * 0.1, opacity: 0.35);
+      _specular(
+        canvas,
+        Offset(rHandX - headR * 0.06, rHandY - headR * 0.08),
+        headR * 0.1,
+        opacity: 0.35,
+      );
     }
   }
 
@@ -1086,16 +1404,18 @@ class _DoctorAppearanceDB {
   };
 
   static _DoctorAppearance get(String id, String gender) {
-    return _db[id] ?? _DoctorAppearance(
-      skinColor: const Color(0xFFD4A574),
-      hairColor: const Color(0xFF333333),
-      coatColor: const Color(0xFF1565C0),
-      accentColor: Colors.blue,
-      hairstyle: gender == 'male' ? HairstyleType.short : HairstyleType.longWavy,
-      hasBeard: false,
-      eyeColor: Colors.brown,
-      gender: gender,
-    );
+    return _db[id] ??
+        _DoctorAppearance(
+          skinColor: const Color(0xFFD4A574),
+          hairColor: const Color(0xFF333333),
+          coatColor: const Color(0xFF1565C0),
+          accentColor: Colors.blue,
+          hairstyle: gender == 'male'
+              ? HairstyleType.short
+              : HairstyleType.longWavy,
+          hasBeard: false,
+          eyeColor: Colors.brown,
+          gender: gender,
+        );
   }
 }
-

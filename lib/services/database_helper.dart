@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6, // ← bumped de 5 à 6
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -66,10 +66,27 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 5) {
-      // Fix ai_doctors table: drop and recreate with correct nullable schema
+      // Recréer ai_doctors avec doctor_id nullable
       await db.execute('DROP TABLE IF EXISTS ai_doctors');
       await db.execute('''
         CREATE TABLE IF NOT EXISTS ai_doctors (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          doctor_id TEXT,
+          name TEXT NOT NULL,
+          specialty TEXT NOT NULL,
+          rating TEXT,
+          image_url TEXT,
+          gender TEXT,
+          created_at TEXT
+        )
+      ''');
+    }
+    if (oldVersion < 6) {
+      // FIX: recréer ai_doctors pour s'assurer que doctor_id est bien nullable
+      // (certains devices avaient doctor_id TEXT NOT NULL à cause d'un bug)
+      await db.execute('DROP TABLE IF EXISTS ai_doctors');
+      await db.execute('''
+        CREATE TABLE ai_doctors (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           doctor_id TEXT,
           name TEXT NOT NULL,
@@ -140,8 +157,9 @@ class DatabaseHelper {
       )
     ''');
 
+    // FIX: doctor_id est TEXT nullable (pas NOT NULL)
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS ai_doctors (
+      CREATE TABLE ai_doctors (
         id $idType,
         doctor_id TEXT,
         name $textType,

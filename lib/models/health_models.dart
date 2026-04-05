@@ -300,14 +300,21 @@ class Doctor {
     'gender': gender,
   };
 
-  factory Doctor.fromMap(Map<String, dynamic> map) => Doctor(
-    id: map['id'] as String,
-    name: map['name'] as String,
-    specialty: map['specialty'] as String,
-    rating: map['rating'] as String,
-    imageUrl: map['image_url'] as String? ?? map['imageUrl'] as String? ?? '',
-    gender: map['gender'] as String,
-  );
+  factory Doctor.fromMap(Map<String, dynamic> map) {
+    // FIX: lire doctor_id en priorité (string original de l'IA),
+    // sinon fallback sur id converti en string (auto-increment entier)
+    final rawId = map['doctor_id'] ?? map['id'];
+    final stringId = rawId?.toString() ?? '1';
+
+    return Doctor(
+      id: stringId,
+      name: map['name'] as String,
+      specialty: map['specialty'] as String,
+      rating: (map['rating'] ?? '4.5') as String,
+      imageUrl: map['image_url'] as String? ?? map['imageUrl'] as String? ?? '',
+      gender: (map['gender'] ?? 'male') as String,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────
