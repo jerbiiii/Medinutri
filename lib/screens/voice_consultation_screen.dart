@@ -6,7 +6,6 @@ import 'package:medinutri/widgets/doctor_avatar_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'dart:math' as math;
 
 enum AvatarState { idle, listening, thinking, speaking, waving }
 
@@ -111,8 +110,18 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
       }
     } catch (_) {}
 
-    await _tts.setPitch(widget.doctor.gender == 'male' ? 0.85 : 1.15);
-    await _tts.setSpeechRate(0.5);
+    // ── FIX VOIX MASCULINE : pitch plus grave ──────────────
+    // Avant : male=0.85 (sonnait comme une femme)
+    // Après : male=0.55 (voix grave/masculine), female=1.2 (voix féminine nette)
+    if (widget.doctor.gender == 'male') {
+      await _tts.setPitch(0.55); // ← voix grave
+      await _tts.setSpeechRate(
+        0.44,
+      ); // ← débit légèrement plus lent = plus naturel
+    } else {
+      await _tts.setPitch(1.2);
+      await _tts.setSpeechRate(0.5);
+    }
 
     _tts.setCompletionHandler(() {
       if (mounted) {
@@ -128,7 +137,6 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
         'Je suis prêt pour votre consultation. Comment vous sentez-vous aujourd\'hui ?';
     _setState2(AvatarState.speaking, status: 'Présentation...');
     await _tts.speak(greeting);
-    // Ajouter la salutation dans l'historique local
     _localHistory.add({'role': 'assistant', 'content': greeting});
   }
 

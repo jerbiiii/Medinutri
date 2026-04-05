@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 // ─────────────────────────────────────────────────────────
-//  GOAL TYPE  — objectif nutritionnel avec paramètres IA
+//  GOAL TYPE
 // ─────────────────────────────────────────────────────────
 enum GoalType {
   weightLoss,
@@ -26,7 +26,6 @@ enum GoalType {
     GoalType.rebalancing => '🥗',
   };
 
-  /// Ajustement calorique par rapport au TDEE (+ ou -)
   int get calorieAdjustment => switch (this) {
     GoalType.weightLoss => -500,
     GoalType.weightGain => 400,
@@ -79,6 +78,7 @@ class PatientProfile {
   final String allergies;
   final String medicalConditions;
   final String goal;
+  final String? photoPath; // ← NOUVEAU
 
   PatientProfile({
     this.id,
@@ -92,6 +92,7 @@ class PatientProfile {
     this.allergies = 'Aucune',
     this.medicalConditions = 'Aucune',
     this.goal = 'Équilibre alimentaire',
+    this.photoPath,
   });
 
   double get bmi => weight / ((height / 100) * (height / 100));
@@ -103,13 +104,11 @@ class PatientProfile {
     return 'Obésité';
   }
 
-  /// Métabolisme de base (Mifflin-St Jeor)
   double get bmr {
     final base = 10 * weight + 6.25 * height - 5 * age;
     return gender == 'Homme' ? base + 5 : base - 161;
   }
 
-  /// Dépense énergétique totale selon l'activité
   int get tdee {
     final multiplier = switch (activityLevel) {
       'Sédentaire' => 1.2,
@@ -133,6 +132,7 @@ class PatientProfile {
     'allergies': allergies,
     'medical_conditions': medicalConditions,
     'goal': goal,
+    'photo_path': photoPath,
   };
 
   factory PatientProfile.fromMap(Map<String, dynamic> map) => PatientProfile(
@@ -147,11 +147,28 @@ class PatientProfile {
     allergies: map['allergies'] ?? 'Aucune',
     medicalConditions: map['medical_conditions'] ?? 'Aucune',
     goal: map['goal'] ?? 'Équilibre alimentaire',
+    photoPath: map['photo_path'] as String?,
+  );
+
+  /// Copie avec photoPath mis à jour
+  PatientProfile copyWithPhoto(String? newPhotoPath) => PatientProfile(
+    id: id,
+    userId: userId,
+    name: name,
+    age: age,
+    gender: gender,
+    weight: weight,
+    height: height,
+    activityLevel: activityLevel,
+    allergies: allergies,
+    medicalConditions: medicalConditions,
+    goal: goal,
+    photoPath: newPhotoPath,
   );
 }
 
 // ─────────────────────────────────────────────────────────
-//  NUTRITION PLAN  (multi-plan par GoalType)
+//  NUTRITION PLAN
 // ─────────────────────────────────────────────────────────
 class NutritionPlan {
   final int? id;
@@ -301,13 +318,9 @@ class Doctor {
   };
 
   factory Doctor.fromMap(Map<String, dynamic> map) {
-    // FIX: lire doctor_id en priorité (string original de l'IA),
-    // sinon fallback sur id converti en string (auto-increment entier)
     final rawId = map['doctor_id'] ?? map['id'];
-    final stringId = rawId?.toString() ?? '1';
-
     return Doctor(
-      id: stringId,
+      id: rawId?.toString() ?? '1',
       name: map['name'] as String,
       specialty: map['specialty'] as String,
       rating: (map['rating'] ?? '4.5') as String,

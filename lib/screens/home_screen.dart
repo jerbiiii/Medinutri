@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:medinutri/services/theme_notifier.dart';
@@ -20,7 +21,7 @@ class HomeScreen extends StatelessWidget {
     final isDark = themeNotifier.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: themeNotifier.brightness == Brightness.dark ? const Color(0xFF000000) : Colors.grey[50],
+      backgroundColor: isDark ? const Color(0xFF000000) : Colors.grey[50],
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -34,16 +35,23 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: IconButton(
-                icon: const Icon(Icons.person_rounded, color: Colors.white, size: 24),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-                tooltip: "Profil",
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                ),
+                child: _buildProfileAvatar(profile?.photoPath, themeNotifier),
               ),
             ),
-            backgroundColor: isDark ? const Color(0xFF000000) : Colors.blueAccent,
+            backgroundColor: isDark
+                ? const Color(0xFF000000)
+                : Colors.blueAccent,
             actions: [
               IconButton(
-                icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded, color: Colors.white),
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: Colors.white,
+                ),
                 onPressed: () => themeNotifier.toggleTheme(),
               ),
               IconButton(
@@ -54,14 +62,17 @@ class HomeScreen extends StatelessWidget {
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'MediNutri AI',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white),
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ).animate().fadeIn(duration: 600.ms).moveY(begin: 20, end: 0),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: isDark 
-                      ? [const Color(0xFF000000), const Color(0xFF1A1A1A)]
-                      : [Colors.blueAccent, const Color(0xFF64B5F6)],
+                    colors: isDark
+                        ? [const Color(0xFF000000), const Color(0xFF1A1A1A)]
+                        : [Colors.blueAccent, const Color(0xFF64B5F6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -95,59 +106,142 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Bonjour, ${profile?.name ?? 'Patient'}",
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Votre assistant de santé est prêt.",
-                    style: TextStyle(color: Colors.grey),
+                  // ── Salutation avec photo ────────────
+                  Row(
+                    children: [
+                      if (profile?.photoPath != null &&
+                          File(profile!.photoPath!).existsSync())
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ProfileScreen(),
+                            ),
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 14),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.blueAccent.withValues(alpha: 0.5),
+                                width: 2,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: Image.file(
+                                File(profile.photoPath!),
+                                width: 52,
+                                height: 52,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Bonjour, ${profile?.name ?? 'Patient'} 👋',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Votre assistant de santé est prêt.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
+
+                  // ── Cartes de services ───────────────
                   _buildServiceCard(
                     context,
-                    title: "Docteur IA",
-                    subtitle: "Analysez vos symptômes immédiatement",
+                    title: 'Docteur IA',
+                    subtitle: 'Analysez vos symptômes immédiatement',
                     icon: Icons.medical_services_outlined,
                     color: Colors.redAccent,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatScreen())),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatScreen()),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _buildServiceCard(
                     context,
-                    title: "Télémédecine",
-                    subtitle: "Consultez un vrai médecin en vidéo",
+                    title: 'Télémédecine',
+                    subtitle: 'Consultez un médecin IA en vocal',
                     icon: Icons.video_call_outlined,
                     color: Colors.blueAccent,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TelemedicineScreen())),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TelemedicineScreen(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _buildServiceCard(
                     context,
-                    title: "Programme Nutrition",
-                    subtitle: "Plans personnalisés suite au diagnostic",
+                    title: 'Programme Nutrition',
+                    subtitle: 'Plans personnalisés selon votre profil',
                     icon: Icons.restaurant_menu,
                     color: Colors.lightGreenAccent,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NutritionScreen())),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NutritionScreen(),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
+
+                  // ── Tableau de bord ──────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Tableau de bord de santé", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Tableau de bord de santé',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       TextButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
-                        child: const Text("Détails"),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProfileScreen(),
+                          ),
+                        ),
+                        child: const Text('Détails'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _buildQuickStat(context, "IMC", profile?.bmi.toStringAsFixed(1) ?? "--", Colors.blue, profile?.bmiStatus ?? "N/A"),
+                      _buildQuickStat(
+                        context,
+                        'IMC',
+                        profile?.bmi.toStringAsFixed(1) ?? '--',
+                        Colors.blue,
+                        profile?.bmiStatus ?? 'N/A',
+                      ),
                       const SizedBox(width: 12),
-                      _buildQuickStat(context, "Poids", "${profile?.weight ?? '--'}kg", Colors.green, "Dernière pesée"),
+                      _buildQuickStat(
+                        context,
+                        'Poids',
+                        '${profile?.weight ?? '--'} kg',
+                        Colors.green,
+                        'Dernière pesée',
+                      ),
                     ],
                   ),
                 ],
@@ -159,9 +253,29 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  /// Avatar dans la barre d'app (miniature)
+  Widget _buildProfileAvatar(String? photoPath, ThemeNotifier themeNotifier) {
+    final hasPhoto = photoPath != null && File(photoPath).existsSync();
+    return ClipOval(
+      child: hasPhoto
+          ? Image.file(
+              File(photoPath),
+              fit: BoxFit.cover,
+              width: 40,
+              height: 40,
+            )
+          : Icon(Icons.person_rounded, color: Colors.white, size: 24),
+    );
+  }
 
-  Widget _buildServiceCard(BuildContext context,
-      {required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildServiceCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
@@ -171,12 +285,14 @@ class HomeScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF121212) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isDark ? Colors.white10 : color.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: isDark ? Colors.white10 : color.withValues(alpha: 0.1),
+          ),
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.black26 : color.withValues(alpha: 0.05), 
-              blurRadius: 10, 
-              offset: const Offset(0, 4)
+              color: isDark ? Colors.black26 : color.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -184,7 +300,10 @@ class HomeScreen extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(width: 16),
@@ -192,8 +311,20 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), // Correct bolding
-                  Text(subtitle, style: TextStyle(color: isDark ? Colors.white60 : Colors.grey, fontSize: 12)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -204,7 +335,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStat(BuildContext context, String label, String value, Color color, String subvalue) {
+  Widget _buildQuickStat(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+    String subvalue,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
@@ -215,9 +352,9 @@ class HomeScreen extends StatelessWidget {
           border: isDark ? Border.all(color: Colors.white10) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05), 
-              blurRadius: 10
-            )
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+            ),
           ],
         ),
         child: Column(
@@ -225,9 +362,19 @@ class HomeScreen extends StatelessWidget {
           children: [
             Text(label, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(subvalue, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(
+              subvalue,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
           ],
         ),
       ),

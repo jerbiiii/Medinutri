@@ -21,7 +21,6 @@ class DoctorAvatarWidget extends StatefulWidget {
 
 class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
     with TickerProviderStateMixin {
-  // â”€â”€ Animation Controllers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   late AnimationController _floatCtrl; // Idle floating Y offset
   late AnimationController _breathCtrl; // Subtle body breath scale
   late AnimationController _blinkCtrl; // Eye blink
@@ -30,7 +29,6 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
   late AnimationController _headCtrl; // Head nod / tilt
   late AnimationController _thinkCtrl; // Thinking eye roll
 
-  // â”€â”€ Derived animated values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   late Animation<double> _floatAnim;
   late Animation<double> _breathAnim;
   late Animation<double> _blinkAnim;
@@ -261,9 +259,7 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  3D PAINTER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _DoctorPainter3D extends CustomPainter {
   final _DoctorAppearance appearance;
@@ -289,7 +285,6 @@ class _DoctorPainter3D extends CustomPainter {
     required this.breathVal,
   });
 
-  // â”€â”€ Sphere paint helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Paint _sphere(
     Color base,
     Rect bounds, {
@@ -307,7 +302,6 @@ class _DoctorPainter3D extends CustomPainter {
       ).createShader(bounds);
   }
 
-  // â”€â”€ Glossy specular dot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _specular(Canvas c, Offset center, double r, {double opacity = 0.55}) {
     c.drawCircle(
       center,
@@ -322,7 +316,6 @@ class _DoctorPainter3D extends CustomPainter {
     );
   }
 
-  // â”€â”€ Soft shadow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _softShadow(Canvas c, Rect r, {double blur = 12, Color? color}) {
     c.drawOval(
       r,
@@ -339,7 +332,6 @@ class _DoctorPainter3D extends CustomPainter {
     final headCY = size.height * 0.265;
     final headCenter = Offset(cx, headCY);
 
-    // â”€â”€ Apply head tilt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     canvas.save();
     canvas.translate(cx, headCY);
     canvas.rotate(headTilt);
@@ -359,7 +351,6 @@ class _DoctorPainter3D extends CustomPainter {
     _drawArms(canvas, size, cx, headCY, headR);
   }
 
-  // â”€â”€ BODY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _drawBody(
     Canvas canvas,
     Size size,
@@ -471,7 +462,6 @@ class _DoctorPainter3D extends CustomPainter {
     );
   }
 
-  // â”€â”€ NECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _drawNeck(Canvas canvas, double cx, double headCY, double headR) {
     final neckRect = Rect.fromCenter(
       center: Offset(cx, headCY + headR * 0.82),
@@ -484,7 +474,6 @@ class _DoctorPainter3D extends CustomPainter {
     );
   }
 
-  // â”€â”€ EARS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _drawEars(Canvas canvas, double cx, double headCY, double headR) {
     for (var side in [-1.0, 1.0]) {
       final ex = cx + side * headR * 0.97;
@@ -510,7 +499,6 @@ class _DoctorPainter3D extends CustomPainter {
     }
   }
 
-  // â”€â”€ HEAD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _drawHead(Canvas canvas, double cx, double headCY, double headR) {
     final headRect = Rect.fromCenter(
       center: Offset(cx, headCY),
@@ -559,7 +547,6 @@ class _DoctorPainter3D extends CustomPainter {
     );
   }
 
-  // â”€â”€ HAIR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _drawHair(Canvas canvas, double cx, double headCY, double headR) {
     final hairLight = Color.lerp(appearance.hairColor, Colors.white, 0.28)!;
     final hairDark = Color.lerp(appearance.hairColor, Colors.black, 0.42)!;
@@ -688,7 +675,6 @@ class _DoctorPainter3D extends CustomPainter {
         break;
 
       case HairstyleType.curly:
-        final puffPaint = Paint()..color = appearance.hairColor;
         for (int i = 0; i < 10; i++) {
           final a = (i / 10) * 2 * math.pi - math.pi / 2;
           final dx = math.cos(a) * headR * 0.82;

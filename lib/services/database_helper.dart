@@ -16,10 +16,9 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
     return await openDatabase(
       path,
-      version: 6, // ← bumped de 5 à 6
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -52,7 +51,6 @@ class DatabaseHelper {
       await db.execute(
         'ALTER TABLE chat_history ADD COLUMN conversation_title TEXT',
       );
-
       await db.execute('''
         CREATE TABLE IF NOT EXISTS nutrition_plans (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +64,6 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 5) {
-      // Recréer ai_doctors avec doctor_id nullable
       await db.execute('DROP TABLE IF EXISTS ai_doctors');
       await db.execute('''
         CREATE TABLE IF NOT EXISTS ai_doctors (
@@ -82,8 +79,7 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 6) {
-      // FIX: recréer ai_doctors pour s'assurer que doctor_id est bien nullable
-      // (certains devices avaient doctor_id TEXT NOT NULL à cause d'un bug)
+      // FIX: doctor_id était NOT NULL sur certains devices — recréer proprement
       await db.execute('DROP TABLE IF EXISTS ai_doctors');
       await db.execute('''
         CREATE TABLE ai_doctors (
@@ -97,6 +93,29 @@ class DatabaseHelper {
           created_at TEXT
         )
       ''');
+    }
+    if (oldVersion < 7) {
+      // FIX 1 : colonnes manquantes dans nutrition_plans (bug plan jamais persisté)
+      try {
+        await db.execute(
+          'ALTER TABLE nutrition_plans ADD COLUMN goal_type TEXT DEFAULT "maintenance"',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE nutrition_plans ADD COLUMN daily_caloric_target INTEGER DEFAULT 2000',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE nutrition_plans ADD COLUMN created_at TEXT',
+        );
+      } catch (_) {}
+
+      // FIX 2 : photo de profil
+      try {
+        await db.execute('ALTER TABLE profiles ADD COLUMN photo_path TEXT');
+      } catch (_) {}
     }
   }
 
@@ -127,6 +146,7 @@ class DatabaseHelper {
         allergies $textType DEFAULT 'Aucune',
         medical_conditions $textType DEFAULT 'Aucune',
         goal $textType DEFAULT 'Équilibre alimentaire',
+        photo_path TEXT,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     ''');
@@ -149,15 +169,17 @@ class DatabaseHelper {
       CREATE TABLE nutrition_plans (
         id $idType,
         user_id INTEGER NOT NULL,
+        goal_type TEXT DEFAULT 'maintenance',
+        daily_caloric_target INTEGER DEFAULT 2000,
         title $textType,
         description $textType,
         meals_json $textType,
         tips_json $textType,
+        created_at TEXT,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     ''');
 
-    // FIX: doctor_id est TEXT nullable (pas NOT NULL)
     await db.execute('''
       CREATE TABLE ai_doctors (
         id $idType,
