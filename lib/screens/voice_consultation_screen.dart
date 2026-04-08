@@ -6,6 +6,7 @@ import 'package:medinutri/widgets/doctor_avatar_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'dart:math' as math;
 
 enum AvatarState { idle, listening, thinking, speaking, waving }
 
@@ -30,11 +31,14 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
   final SpeechToText _stt = SpeechToText();
   bool _speechReady = false;
 
-  // ── Historique LOCAL de cette consultation ──────────────
-  // Ne pollue PAS le chat principal de HealthProvider
+  // ── Mouth sync: driven by TTS prosody estimation ────────────────
+  double _mouthAmplitude = 0.0;
+  bool _isSpeakingTTS = false;
+  String _currentSpeechText = '';
+  int _currentCharIndex = 0;
+
   final List<Map<String, String>> _localHistory = [];
 
-  // Persona du médecin injectée dans chaque appel IA
   String get _doctorPersona =>
       'Tu es ${widget.doctor.name}, spécialiste en ${widget.doctor.specialty}. '
       'Tu parles à un patient lors d\'une consultation vocale. '
@@ -58,10 +62,11 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
     _bgPulse.dispose();
     _tts.stop();
     _stt.stop();
+    _stopMouthSync();
     super.dispose();
   }
 
-  void _setState2(AvatarState s, {String? status}) {
+  void _setAvatarState(AvatarState s, {String? status}) {
     if (!mounted) return;
     setState(() {
       _state = s;
@@ -69,16 +74,90 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
     });
   }
 
-  // ─────────────────────────────────────────────────────
-  //  INITIALISATION
-  // ─────────────────────────────────────────────────────
+  // ── TTS Mouth Sync ───────────────────────────────────────────────
+  // Estimates mouth opening based on phoneme timing from text
+  // French average: ~14 phonemes/second = ~71ms per phoneme
+  // We drive a sine wave at that rate, with amplitude from vowel density
+
+  bool _mouthSyncRunning = false;
+
+  void _startMouthSync(String text) {
+    _currentSpeechText = text;
+    _currentCharIndex = 0;
+    _isSpeakingTTS = true;
+    _mouthSyncRunning = true;
+    _driveMouth(text);
+  }
+
+  void _stopMouthSync() {
+    _mouthSyncRunning = false;
+    _isSpeakingTTS = false;
+    if (mounted) {
+      setState(() => _mouthAmplitude = 0.0);
+    }
+  }
+
+  Future<void> _driveMouth(String text) async {
+    // Estimate speech duration: French ~3.5 chars/sec (including spaces)
+    // Vowels produce bigger opening, consonants smaller
+    const vowels = 'aeiouyàâäéèêëîïôùûüœæAEIOUYÀÂÄÉÈÊËÎÏÔÙÛÜŒÆ';
+    final rng = math.Random();
+
+    int charIdx = 0;
+    while (_mouthSyncRunning && charIdx < text.length) {
+      if (!mounted) break;
+
+      final char = text[charIdx];
+      final isVowel = vowels.contains(char);
+      final isSpace = char == ' ' || char == ',' || char == '.';
+
+      double targetAmp;
+      int holdMs;
+
+      if (isSpace || char == '.' || char == '!') {
+        // Pause on punctuation / space
+        targetAmp = 0.0;
+        holdMs = char == '.' || char == '!'
+            ? 200 + rng.nextInt(150)
+            : 80 + rng.nextInt(60);
+      } else if (isVowel) {
+        // Vowels: wide open
+        targetAmp = 0.55 + rng.nextDouble() * 0.45;
+        holdMs = 75 + rng.nextInt(90); // ~75-165ms per vowel
+      } else {
+        // Consonants: partially open
+        targetAmp = 0.1 + rng.nextDouble() * 0.35;
+        holdMs = 55 + rng.nextInt(70);
+      }
+
+      // Smooth transition to target
+      if (mounted) {
+        setState(() => _mouthAmplitude = targetAmp);
+      }
+
+      await Future.delayed(Duration(milliseconds: holdMs));
+      charIdx++;
+
+      // Every ~8 chars add small random variation
+      if (charIdx % 8 == 0) {
+        await Future.delayed(Duration(milliseconds: rng.nextInt(40)));
+      }
+    }
+
+    // Fade mouth closed
+    if (mounted) {
+      setState(() => _mouthAmplitude = 0.0);
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────
   Future<void> _initSpeech() async {
     _speechReady = await _stt.initialize(
       onError: (e) => debugPrint('STT error: $e'),
       onStatus: (s) {
         if ((s == 'done' || s == 'notListening') &&
             _state == AvatarState.listening) {
-          _setState2(AvatarState.idle);
+          _setAvatarState(AvatarState.idle);
           _micPulse.stop();
         }
       },
@@ -89,7 +168,6 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
   Future<void> _initTts() async {
     await _tts.setLanguage('fr-FR');
 
-    // Sélection de voix selon le genre
     try {
       final voices = await _tts.getVoices as List?;
       if (voices != null) {
@@ -110,42 +188,57 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
       }
     } catch (_) {}
 
-    // ── FIX VOIX MASCULINE : pitch plus grave ──────────────
-    // Avant : male=0.85 (sonnait comme une femme)
-    // Après : male=0.55 (voix grave/masculine), female=1.2 (voix féminine nette)
     if (widget.doctor.gender == 'male') {
-      await _tts.setPitch(0.55); // ← voix grave
-      await _tts.setSpeechRate(
-        0.44,
-      ); // ← débit légèrement plus lent = plus naturel
+      await _tts.setPitch(0.55);
+      await _tts.setSpeechRate(0.44);
     } else {
       await _tts.setPitch(1.2);
-      await _tts.setSpeechRate(0.5);
+      await _tts.setSpeechRate(0.48);
     }
 
-    _tts.setCompletionHandler(() {
+    // When TTS starts speaking, kick off mouth sync
+    _tts.setStartHandler(() {
       if (mounted) {
-        _setState2(AvatarState.idle, status: 'Je vous écoute...');
+        _setAvatarState(
+          AvatarState.speaking,
+          status: '${widget.doctor.name} parle...',
+        );
+        _startMouthSync(_currentSpeechText);
+      }
+    });
+
+    _tts.setCompletionHandler(() {
+      _stopMouthSync();
+      if (mounted) {
+        _setAvatarState(AvatarState.idle, status: 'Je vous écoute...');
         Future.delayed(500.ms, _startListening);
       }
     });
 
-    // Salutation d'accueil
+    _tts.setCancelHandler(() {
+      _stopMouthSync();
+      if (mounted) _setAvatarState(AvatarState.idle);
+    });
+
+    // Greeting
     await Future.delayed(1500.ms);
     final greeting =
         'Bonjour, je suis ${widget.doctor.name}, ${widget.doctor.specialty}. '
         'Je suis prêt pour votre consultation. Comment vous sentez-vous aujourd\'hui ?';
-    _setState2(AvatarState.speaking, status: 'Présentation...');
+
+    _currentSpeechText = greeting;
+    _setAvatarState(AvatarState.speaking, status: 'Présentation...');
     await _tts.speak(greeting);
     _localHistory.add({'role': 'assistant', 'content': greeting});
   }
 
-  // ─────────────────────────────────────────────────────
-  //  ÉCOUTE VOCALE
-  // ─────────────────────────────────────────────────────
+  // ── Listening ──────────────────────────────────────────────────────
   Future<void> _startListening() async {
     if (!_speechReady) return;
-    _setState2(AvatarState.listening, status: 'Exprimez-vous librement...');
+    _setAvatarState(
+      AvatarState.listening,
+      status: 'Exprimez-vous librement...',
+    );
     _micPulse.repeat(reverse: true);
 
     await _stt.listen(
@@ -160,50 +253,44 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
   Future<void> _stopListening() async {
     await _stt.stop();
-    _setState2(AvatarState.idle);
+    _setAvatarState(AvatarState.idle);
     _micPulse.stop();
   }
 
-  // ─────────────────────────────────────────────────────
-  //  TRAITEMENT DE LA RÉPONSE IA (ISOLÉ)
-  // ─────────────────────────────────────────────────────
+  // ── AI Response ───────────────────────────────────────────────────
   Future<void> _handleInput(String text) async {
     if (text.isEmpty) {
       Future.delayed(1.seconds, _startListening);
       return;
     }
 
-    _setState2(
+    _setAvatarState(
       AvatarState.thinking,
       status: '${widget.doctor.name} réfléchit...',
     );
 
     try {
       final hp = Provider.of<HealthProvider>(context, listen: false);
-
-      // ── Appel IA isolé — n'affecte PAS le chat principal ──
       final response = await hp.analyzeForVoiceConsultation(
         text,
         _localHistory,
         _doctorPersona,
       );
-
       if (!mounted) return;
-      _setState2(
+
+      _currentSpeechText = response;
+      _setAvatarState(
         AvatarState.speaking,
         status: '${widget.doctor.name} répond...',
       );
       await _tts.speak(response);
     } catch (e) {
-      if (mounted) {
-        _setState2(AvatarState.idle, status: 'Problème de connexion.');
-      }
+      if (mounted)
+        _setAvatarState(AvatarState.idle, status: 'Problème de connexion.');
     }
   }
 
-  // ─────────────────────────────────────────────────────
-  //  UI
-  // ─────────────────────────────────────────────────────
+  // ── UI ───────────────────────────────────────────────────────────
   Color get _accent {
     const colors = {
       '1': Color(0xFF42A5F5),
@@ -225,7 +312,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
       backgroundColor: const Color(0xFF070B14),
       body: Stack(
         children: [
-          // Fond animé
+          // Animated background gradient
           AnimatedBuilder(
             animation: _bgPulse,
             builder: (_, __) => Container(
@@ -242,13 +329,13 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
             ),
           ),
 
-          // Grille cyberpunk
+          // Cyber grid
           CustomPaint(painter: _GridPainter(accent), size: Size.infinite),
 
           SafeArea(
             child: Column(
               children: [
-                // Barre top
+                // Top bar
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -264,6 +351,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                         ),
                         onPressed: () {
                           _tts.stop();
+                          _stopMouthSync();
                           Navigator.pop(context);
                         },
                       ),
@@ -273,7 +361,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                   ),
                 ),
 
-                // Avatar
+                // Avatar area
                 Expanded(
                   child: Center(
                     child: Column(
@@ -282,16 +370,20 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                         Stack(
                           alignment: Alignment.center,
                           children: [
-                            // Anneaux de pulsation
+                            // Pulse rings
                             if (_state == AvatarState.speaking ||
                                 _state == AvatarState.listening)
                               ...List.generate(3, (i) => _pulseRing(accent, i)),
-                            // Avatar 3D
+
+                            // 3D Bitmoji Avatar
                             DoctorAvatarWidget(
                                   doctorId: widget.doctor.id,
                                   gender: widget.doctor.gender,
                                   avatarState: _state.name,
-                                  size: 230,
+                                  size: 240,
+                                  mouthAmplitude: _state == AvatarState.speaking
+                                      ? _mouthAmplitude
+                                      : null,
                                 )
                                 .animate()
                                 .fadeIn(delay: 200.ms)
@@ -304,6 +396,8 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                           ],
                         ),
                         const SizedBox(height: 28),
+
+                        // Doctor name
                         Text(
                           widget.doctor.name,
                           style: const TextStyle(
@@ -313,6 +407,8 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                           ),
                         ).animate().fadeIn(delay: 300.ms),
                         const SizedBox(height: 6),
+
+                        // Specialty badge
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -336,6 +432,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                           ),
                         ).animate().fadeIn(delay: 400.ms),
                         const SizedBox(height: 24),
+
                         // Status pill
                         AnimatedSwitcher(
                           duration: 300.ms,
@@ -373,18 +470,17 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                   ),
                 ),
 
-                // Bouton micro
+                // Mic button
                 Padding(
                   padding: const EdgeInsets.only(bottom: 40),
                   child: Column(
                     children: [
                       GestureDetector(
                         onTap: () {
-                          if (_state == AvatarState.listening) {
+                          if (_state == AvatarState.listening)
                             _stopListening();
-                          } else if (_state == AvatarState.idle) {
+                          else if (_state == AvatarState.idle)
                             _startListening();
-                          }
                         },
                         child: AnimatedBuilder(
                           animation: _micPulse,
@@ -499,12 +595,12 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
   Widget _pulseRing(Color accent, int i) =>
       Container(
-            width: 250 + i * 48.0,
-            height: 250 + i * 48.0,
+            width: 260 + i * 50.0,
+            height: 260 + i * 50.0,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: accent.withValues(alpha: 0.14 - i * 0.04),
+                color: accent.withValues(alpha: 0.13 - i * 0.04),
                 width: 1.5,
               ),
             ),

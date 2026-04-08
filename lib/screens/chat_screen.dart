@@ -177,20 +177,22 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showClearDialog(HealthProvider hp) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Archiver la conversation ?'),
         content: const Text(
           'La conversation sera archivée et un nouveau chat sera ouvert.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Annuler'),
           ),
           TextButton(
             onPressed: () async {
               await hp.clearChat();
-              if (mounted) Navigator.pop(context);
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
             },
             child: const Text(
               'Archiver',
