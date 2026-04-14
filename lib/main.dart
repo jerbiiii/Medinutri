@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:medinutri/services/auth_provider.dart';
 import 'package:medinutri/services/health_provider.dart';
 import 'package:medinutri/services/theme_notifier.dart';
+import 'package:medinutri/screens/splash_screen.dart';
 import 'package:medinutri/screens/login_screen.dart';
 import 'package:medinutri/screens/home_screen.dart';
 import 'package:provider/provider.dart';
@@ -33,7 +34,6 @@ class MediNutriApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
 
     return MaterialApp(
       title: 'MediNutri IA',
@@ -43,7 +43,7 @@ class MediNutriApp extends StatelessWidget {
           themeNotifier.themeData.textTheme,
         ),
       ),
-      home: authProvider.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }
