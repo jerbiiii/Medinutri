@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 // ══════════════════════════════════════════════════════════════════
@@ -297,19 +297,6 @@ class _Bitmoji3DPainter extends CustomPainter {
           Color.lerp(base, const Color(0xFF0A0500), sh)!,
         ],
         stops: const [0.0, 0.42, 1.0],
-      ).createShader(r);
-  }
-
-  /// Cylinder (left-to-right or top-to-bottom) for limbs
-  Paint _cyl(Color base, Rect r, {bool vertical = false}) {
-    final light = Color.lerp(base, Colors.white, 0.32)!;
-    final dark = Color.lerp(base, Colors.black, 0.36)!;
-    return Paint()
-      ..shader = LinearGradient(
-        begin: vertical ? Alignment.topCenter : Alignment.centerLeft,
-        end: vertical ? Alignment.bottomCenter : Alignment.centerRight,
-        colors: [dark, light, base, dark],
-        stops: const [0.0, 0.18, 0.58, 1.0],
       ).createShader(r);
   }
 
@@ -2306,33 +2293,33 @@ class BitmojiDB {
       hasGlasses: true,
       gender: 'male',
     ),
-    // ── 4: Homme peau foncée, blouse violette ─────────────────────
+    // ── 4: Homme peau foncée, blouse bleu ciel ───────────────────
     '4': BitmojiProfile(
       skinColor: Color(0xFF8B5322),
       hairColor: Color(0xFF0A0A0A),
-      coatColor: Color(0xFF3A0E6E),
-      accentColor: Color(0xFF9C27B0),
+      coatColor: Color(0xFFE3F2FD),
+      accentColor: Color(0xFF42A5F5),
       eyeColor: Color(0xFF4A148C),
       blushColor: Color(0xFFBF5A3A),
       lipColor: Color(0xFF7A2A18),
-      pantsColor: Color(0xFF1A1A1A),
-      shoeColor: Color(0xFF4A148C),
+      pantsColor: Color(0xFF263238),
+      shoeColor: Color(0xFF1A1A1A),
       earringColor: Colors.transparent,
       accessoryColor: Colors.transparent,
       hairstyle: BitHair.shortSide,
       hasGlasses: false,
       gender: 'male',
     ),
-    // ── 5: Femme cheveux noirs droits, blouse rose ────────────────
+    // ── 5: Femme cheveux noirs droits, blouse bleu marine ────────
     '5': BitmojiProfile(
       skinColor: Color(0xFFFADFC8),
       hairColor: Color(0xFF151515),
-      coatColor: Color(0xFFBE1058),
-      accentColor: Color(0xFFF06292),
-      eyeColor: Color(0xFF880E4F),
+      coatColor: Color(0xFF1A237E),
+      accentColor: Color(0xFF5C6BC0),
+      eyeColor: Color(0xFF0D47A1),
       blushColor: Color(0xFFFF80AB),
       lipColor: Color(0xFFE91E63),
-      pantsColor: Color(0xFF353535),
+      pantsColor: Color(0xFF37474F),
       shoeColor: Color(0xFF101010),
       earringColor: Color(0xFFE91E63),
       accessoryColor: Color(0xFFE91E63),
@@ -2357,16 +2344,16 @@ class BitmojiDB {
       hasGlasses: true,
       gender: 'male',
     ),
-    // ── 7: Femme cheveux bouclés roux, blouse orange ──────────────
+    // ── 7: Femme cheveux bouclés roux, blouse blanche ────────────
     '7': BitmojiProfile(
       skinColor: Color(0xFFE0AB72),
       hairColor: Color(0xFFBF3806),
-      coatColor: Color(0xFFBD3000),
-      accentColor: Color(0xFFFF9800),
+      coatColor: Color(0xFFF8F8F8),
+      accentColor: Color(0xFF90A4AE),
       eyeColor: Color(0xFF6D1800),
       blushColor: Color(0xFFFF8A55),
       lipColor: Color(0xFFD54212),
-      pantsColor: Color(0xFF1A5820),
+      pantsColor: Color(0xFF263238),
       shoeColor: Color(0xFF4E3428),
       earringColor: Color(0xFFFF9800),
       accessoryColor: Color(0xFFFF9800),
@@ -2393,22 +2380,15 @@ class BitmojiDB {
     ),
   };
 
-  static BitmojiProfile get(String id, String gender) =>
-      _db[id] ??
-      BitmojiProfile(
-        skinColor: const Color(0xFFD4A574),
-        hairColor: const Color(0xFF303030),
-        coatColor: const Color(0xFF1565C0),
-        accentColor: Colors.blue,
-        eyeColor: Colors.brown,
-        blushColor: const Color(0xFFFFAB91),
-        lipColor: const Color(0xFFAA5540),
-        pantsColor: const Color(0xFF37474F),
-        shoeColor: const Color(0xFF212121),
-        earringColor: Colors.transparent,
-        accessoryColor: Colors.grey,
-        hairstyle: BitHair.shortSide,
-        hasGlasses: false,
-        gender: gender,
+  static BitmojiProfile get(String id, String gender) {
+    var profile = _db[id];
+    // If mismatch or not found, try to find a default for that gender
+    if (profile == null || (profile.gender != gender && gender.isNotEmpty)) {
+      profile = _db.values.firstWhere(
+        (p) => p.gender == gender,
+        orElse: () => _db.values.first,
       );
+    }
+    return profile;
+  }
 }

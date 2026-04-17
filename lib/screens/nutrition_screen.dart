@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medinutri/models/health_models.dart';
 import 'package:medinutri/services/health_provider.dart';
+import 'package:medinutri/services/theme_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:medinutri/screens/nutrition_form_screen.dart';
@@ -24,7 +25,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text("Programme Hebdomadaire"),
         actions: [
@@ -63,7 +64,11 @@ class _NutritionScreenState extends State<NutritionScreen> {
                         const SizedBox(height: 24),
                         Text(
                           "Repas du $_selectedDay",
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          ),
                         ).animate().fadeIn(delay: 200.ms),
                         const SizedBox(height: 12),
                         ...(plan.weeklyMeals[_selectedDay] ?? []).asMap().entries.map((entry) {
@@ -73,9 +78,13 @@ class _NutritionScreenState extends State<NutritionScreen> {
                               .slideX();
                         }),
                         const SizedBox(height: 24),
-                        const Text(
+                        Text(
                           "Conseils de santé",
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          ),
                         ).animate().fadeIn(delay: 600.ms),
                         const SizedBox(height: 12),
                         ...plan.tips.map((tip) => _buildTipCard(tip, isDark).animate().fadeIn(delay: 800.ms)),
@@ -100,21 +109,38 @@ class _NutritionScreenState extends State<NutritionScreen> {
           final isSelected = _selectedDay == day;
           return GestureDetector(
             onTap: () => setState(() => _selectedDay = day),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 4),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: isSelected 
-                    ? Colors.blueAccent 
-                    : (isDark ? Colors.white10 : Colors.grey[200]),
+                gradient: isSelected
+                    ? const LinearGradient(colors: ThemeNotifier.primaryGradient)
+                    : null,
+                color: isSelected
+                    ? null
+                    : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white),
                 borderRadius: BorderRadius.circular(25),
+                border: isSelected
+                    ? null
+                    : Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
               ),
               alignment: Alignment.center,
               child: Text(
                 day,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.grey[600]),
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                  fontSize: 13,
                 ),
               ),
             ),
@@ -133,13 +159,20 @@ class _NutritionScreenState extends State<NutritionScreen> {
           const SizedBox(
             width: 60,
             height: 60,
-            child: CircularProgressIndicator(strokeWidth: 3),
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: Color(0xFF0D9488),
+            ),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             "Génération de votre programme\ntunisien en cours...",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -147,7 +180,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? Colors.white38 : Colors.grey,
+              color: isDark ? Colors.white38 : Colors.grey[500],
             ),
           ),
         ],
@@ -165,15 +198,15 @@ class _NutritionScreenState extends State<NutritionScreen> {
             Icon(
               error != null ? Icons.cloud_off_rounded : Icons.no_food_outlined,
               size: 80,
-              color: error != null ? Colors.orange : (isDark ? Colors.white38 : Colors.grey),
+              color: error != null ? Colors.orange : (isDark ? Colors.white38 : Colors.grey[400]),
             ),
             const SizedBox(height: 20),
             Text(
               error != null ? "Génération impossible" : "Aucun plan généré.",
               style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF1E293B),
               ),
             ),
             const SizedBox(height: 12),
@@ -182,7 +215,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Text(
@@ -197,23 +230,39 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
-                  color: isDark ? Colors.white60 : Colors.grey[600],
+                  color: isDark ? Colors.white60 : Colors.grey[500],
                 ),
               ),
             const SizedBox(height: 28),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NutritionFormScreen()),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(colors: ThemeNotifier.primaryGradient),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              icon: Icon(error != null ? Icons.refresh : Icons.add),
-              label: Text(error != null
-                  ? "Réessayer la génération"
-                  : "Créer mon programme"),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NutritionFormScreen()),
+                ),
+                icon: Icon(error != null ? Icons.refresh : Icons.add, color: Colors.white),
+                label: Text(
+                  error != null ? "Réessayer la génération" : "Créer mon programme",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
           ],
@@ -226,14 +275,17 @@ class _NutritionScreenState extends State<NutritionScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: isDark ? const Color(0xFF121212) : Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: isDark ? Border.all(color: Colors.white10) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: isDark
+                ? Colors.transparent
+                : const Color(0xFF0D9488).withValues(alpha: 0.06),
+            blurRadius: 16,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -241,12 +293,28 @@ class _NutritionScreenState extends State<NutritionScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: Colors.lightGreen),
-              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF10B981).withValues(alpha: 0.15),
+                      const Color(0xFF10B981).withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 20),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   plan.title,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  ),
                 ),
               ),
             ],
@@ -254,7 +322,11 @@ class _NutritionScreenState extends State<NutritionScreen> {
           const SizedBox(height: 12),
           Text(
             plan.description,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(
+              color: isDark ? Colors.white60 : Colors.grey[500],
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -277,22 +349,38 @@ class _NutritionScreenState extends State<NutritionScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)]),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D9488), Color(0xFF10B981)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.green.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))
+          BoxShadow(
+            color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Column(
         children: [
-          Text("OBJECTIF DU $_selectedDay", style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          Text(
+            "OBJECTIF DU $_selectedDay",
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+            ),
+          ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text("$totalCals", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+              Text("$totalCals", style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800)),
               const SizedBox(width: 4),
               const Text("kcal", style: TextStyle(color: Colors.white70, fontSize: 16)),
             ],
@@ -314,73 +402,93 @@ class _NutritionScreenState extends State<NutritionScreen> {
   Widget _buildMacroInfo(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
       ],
     );
   }
 
   Widget _buildMealCard(BuildContext context, Meal meal, bool isDark) {
     IconData typeIcon = Icons.wb_sunny_outlined;
-    if (meal.type.contains("Déjeuner")) typeIcon = Icons.restaurant;
-    if (meal.type.contains("Collation")) typeIcon = Icons.apple_outlined;
-    if (meal.type.contains("Dîner")) typeIcon = Icons.nightlight_outlined;
-
-    final theme = Theme.of(context);
+    Color typeColor = Colors.orange;
+    if (meal.type.contains("Déjeuner")) {
+      typeIcon = Icons.restaurant;
+      typeColor = const Color(0xFFEF4444);
+    }
+    if (meal.type.contains("Collation")) {
+      typeIcon = Icons.apple_outlined;
+      typeColor = const Color(0xFF10B981);
+    }
+    if (meal.type.contains("Dîner")) {
+      typeIcon = Icons.nightlight_outlined;
+      typeColor = const Color(0xFF6366F1);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[100]!),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 10,
+            color: isDark
+                ? Colors.transparent
+                : typeColor.withValues(alpha: 0.05),
+            blurRadius: 12,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: () => _showMealDetails(context, meal, isDark),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.primaryColor.withValues(alpha: 0.1),
+              gradient: LinearGradient(
+                colors: [
+                  typeColor.withValues(alpha: 0.15),
+                  typeColor.withValues(alpha: 0.05),
+                ],
+              ),
               shape: BoxShape.circle,
             ),
-            child: Icon(typeIcon, color: theme.primaryColor, size: 24),
+            child: Icon(typeIcon, color: typeColor, size: 22),
           ),
           title: Text(
             meal.name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     "${meal.calories} kcal",
-                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.w700, fontSize: 11),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   meal.type,
-                  style: TextStyle(color: isDark ? Colors.white38 : Colors.grey, fontSize: 12),
+                  style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[400], fontSize: 12),
                 ),
                 const Spacer(),
-                Icon(Icons.info_outline, size: 16, color: theme.primaryColor.withValues(alpha: 0.5)),
+                Icon(Icons.info_outline, size: 16, color: typeColor.withValues(alpha: 0.4)),
               ],
             ),
           ),
@@ -397,8 +505,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.45,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          color: isDark ? const Color(0xFF121212) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -408,7 +516,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -417,44 +528,72 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF0D9488).withValues(alpha: 0.15),
+                        const Color(0xFF0D9488).withValues(alpha: 0.05),
+                      ],
+                    ),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.restaurant, color: Theme.of(context).primaryColor),
+                  child: const Icon(Icons.restaurant, color: Color(0xFF0D9488)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(meal.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      Text(meal.type, style: const TextStyle(color: Colors.grey)),
+                      Text(meal.name, style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      )),
+                      Text(meal.type, style: TextStyle(color: isDark ? Colors.white60 : Colors.grey[500])),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 32),
-            const Text("COMPOSITION DU REPAS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.blueAccent)),
+            const Text(
+              "COMPOSITION DU REPAS",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: Color(0xFF0D9488),
+              ),
+            ),
             const SizedBox(height: 12),
             Text(
-              meal.ingredients.isEmpty ? "Consultez les détails du plat traditionnel tunisien ci-dessus." : meal.ingredients.join(", "),
-              style: const TextStyle(fontSize: 16, height: 1.5),
+              meal.ingredients.isEmpty
+                  ? "Consultez les détails du plat traditionnel tunisien ci-dessus."
+                  : meal.ingredients.join(", "),
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: isDark ? Colors.white70 : Colors.grey[700],
+              ),
             ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.orange.withValues(alpha: 0.1),
+                    Colors.orange.withValues(alpha: 0.05),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.flash_on, color: Colors.orange),
                   const SizedBox(width: 12),
-                  const Text("ÉNERGIE TOTALE", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text("ÉNERGIE TOTALE", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   const Spacer(),
-                  Text("${meal.calories} kcal", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
+                  Text("${meal.calories} kcal", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.orange)),
                 ],
               ),
             ),
@@ -470,15 +609,37 @@ class _NutritionScreenState extends State<NutritionScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2C2C2C) : Colors.blue[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.blue[100]!),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : const Color(0xFF0D9488).withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white10
+              : const Color(0xFF0D9488).withValues(alpha: 0.1),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 24),
-          const SizedBox(width: 16),
-          Expanded(child: Text(tip, style: const TextStyle(fontSize: 13, height: 1.4))),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              tip,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: isDark ? Colors.white70 : Colors.grey[700],
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -33,15 +33,15 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
   // ── Mouth sync: driven by TTS prosody estimation ────────────────
   double _mouthAmplitude = 0.0;
-  bool _isSpeakingTTS = false;
   String _currentSpeechText = '';
-  int _currentCharIndex = 0;
 
   final List<Map<String, String>> _localHistory = [];
 
   String get _doctorPersona =>
       'Tu es ${widget.doctor.name}, spécialiste en ${widget.doctor.specialty}. '
       'Tu parles à un patient lors d\'une consultation vocale. '
+      'RÈGLE CRITIQUE : Si le patient pose une question ou demande un conseil qui n\'est PAS lié à ta spécialité (${widget.doctor.specialty}), ne réponds PAS à la question. '
+      'À la place, explique poliment que ce n\'est pas ton domaine d\'expertise et conseille-lui de consulter un confrère spécialisé dans le domaine approprié. '
       'Réponds en maximum 2-3 phrases courtes pour garder la fluidité. '
       'Sois professionnel, empathique et rassurant. Réponds en français.';
 
@@ -83,15 +83,12 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
   void _startMouthSync(String text) {
     _currentSpeechText = text;
-    _currentCharIndex = 0;
-    _isSpeakingTTS = true;
     _mouthSyncRunning = true;
     _driveMouth(text);
   }
 
   void _stopMouthSync() {
     _mouthSyncRunning = false;
-    _isSpeakingTTS = false;
     if (mounted) {
       setState(() => _mouthAmplitude = 0.0);
     }
@@ -285,8 +282,9 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
       );
       await _tts.speak(response);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         _setAvatarState(AvatarState.idle, status: 'Problème de connexion.');
+      }
     }
   }
 
@@ -477,10 +475,11 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                     children: [
                       GestureDetector(
                         onTap: () {
-                          if (_state == AvatarState.listening)
+                          if (_state == AvatarState.listening) {
                             _stopListening();
-                          else if (_state == AvatarState.idle)
+                          } else if (_state == AvatarState.idle) {
                             _startListening();
+                          }
                         },
                         child: AnimatedBuilder(
                           animation: _micPulse,

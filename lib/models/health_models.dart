@@ -44,22 +44,19 @@ enum GoalType {
 //  USER
 // ─────────────────────────────────────────────────────────
 class User {
-  final int? id;
+  final String? id;
   final String username;
-  final String? passwordHash;
 
-  User({this.id, required this.username, this.passwordHash});
+  User({this.id, required this.username});
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'username': username,
-    'password_hash': passwordHash,
   };
 
   factory User.fromMap(Map<String, dynamic> map) => User(
     id: map['id'],
     username: map['username'],
-    passwordHash: map['password_hash'],
   );
 }
 
@@ -67,8 +64,8 @@ class User {
 //  PATIENT PROFILE
 // ─────────────────────────────────────────────────────────
 class PatientProfile {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final String name;
   final int age;
   final String gender;
@@ -78,7 +75,7 @@ class PatientProfile {
   final String allergies;
   final String medicalConditions;
   final String goal;
-  final String? photoPath; // ← NOUVEAU
+  final String? photoPath;
 
   PatientProfile({
     this.id,
@@ -136,8 +133,8 @@ class PatientProfile {
   };
 
   factory PatientProfile.fromMap(Map<String, dynamic> map) => PatientProfile(
-    id: map['id'],
-    userId: map['user_id'],
+    id: map['id']?.toString(),
+    userId: map['user_id']?.toString() ?? '',
     name: map['name'],
     age: map['age'],
     gender: map['gender'],
@@ -171,8 +168,8 @@ class PatientProfile {
 //  NUTRITION PLAN
 // ─────────────────────────────────────────────────────────
 class NutritionPlan {
-  final int? id;
-  final int userId;
+  final String? id;
+  final String userId;
   final GoalType goalType;
   final int dailyCaloricTarget;
   final String title;
@@ -199,7 +196,7 @@ class NutritionPlan {
       mealsMap[day] = meals.map((m) => m.toMap()).toList();
     });
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'user_id': userId,
       'goal_type': goalType.name,
       'daily_caloric_target': dailyCaloricTarget,
@@ -220,8 +217,8 @@ class NutritionPlan {
           .toList();
     });
     return NutritionPlan(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
       goalType: GoalType.fromString(
         map['goal_type'] as String? ?? 'maintenance',
       ),

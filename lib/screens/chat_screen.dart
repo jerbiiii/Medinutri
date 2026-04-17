@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:medinutri/services/health_provider.dart';
+import 'package:medinutri/services/theme_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -54,12 +55,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Docteur IA', style: TextStyle(fontSize: 18)),
+            const Text('Docteur IA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             if (hp.currentProfile != null)
               Text(
                 hp.currentProfile!.name,
@@ -113,12 +114,12 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 children: [
-                  SpinKitThreeBounce(color: theme.primaryColor, size: 18),
+                  SpinKitThreeBounce(color: const Color(0xFF0D9488), size: 18),
                   const SizedBox(width: 12),
                   Text(
                     'Le docteur analyse...',
                     style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.grey,
+                      color: isDark ? Colors.white60 : Colors.grey[500],
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -137,41 +138,68 @@ class _ChatScreenState extends State<ChatScreen> {
     final p = hp.currentProfile!;
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.2)),
+        // Glassmorphism-lite
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFF0D9488).withValues(alpha: 0.15),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D9488).withValues(alpha: isDark ? 0.05 : 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.waving_hand, color: theme.primaryColor, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF0D9488).withValues(alpha: 0.15),
+                      const Color(0xFF3B82F6).withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.waving_hand, color: Color(0xFF0D9488), size: 20),
+              ),
+              const SizedBox(width: 10),
               Text(
                 'Bonjour ${p.name} !',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: theme.primaryColor,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0D9488),
+                  fontSize: 15,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             'Je connais votre profil : ${p.age} ans, ${p.weight} kg, IMC ${p.bmi.toStringAsFixed(1)} (${p.bmiStatus}).\n'
             'Décrivez vos symptômes ou posez-moi une question de santé.',
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? Colors.white70 : Colors.grey[700],
-              height: 1.4,
+              color: isDark ? Colors.white70 : Colors.grey[600],
+              height: 1.5,
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 200.ms);
+    ).animate().fadeIn(delay: 200.ms).scale(begin: const Offset(0.98, 0.98), end: const Offset(1, 1));
   }
 
   void _showClearDialog(HealthProvider hp) {
@@ -205,7 +233,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildBubble(String text, bool isUser, bool isDark, ThemeData theme) {
-    final primary = theme.primaryColor;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -216,8 +243,8 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         decoration: BoxDecoration(
           gradient: isUser
-              ? LinearGradient(
-                  colors: [primary, primary.withValues(alpha: 0.8)],
+              ? const LinearGradient(
+                  colors: ThemeNotifier.primaryGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
@@ -226,19 +253,25 @@ class _ChatScreenState extends State<ChatScreen> {
               ? null
               : (isDark ? const Color(0xFF161616) : Colors.white),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(18),
-            topRight: const Radius.circular(18),
-            bottomLeft: Radius.circular(isUser ? 18 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 18),
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isUser ? 20 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 20),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: isUser
+                  ? const Color(0xFF0D9488).withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
-          border: !isUser && isDark ? Border.all(color: Colors.white10) : null,
+          border: !isUser
+              ? Border.all(
+                  color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.08),
+                )
+              : null,
         ),
         child: isUser
             ? Text(
@@ -253,22 +286,22 @@ class _ChatScreenState extends State<ChatScreen> {
                     fontSize: 15,
                     height: 1.55,
                   ),
-                  strong: TextStyle(
-                    color: isDark ? Colors.blue[300] : theme.primaryColor,
+                  strong: const TextStyle(
+                    color: Color(0xFF0D9488),
                     fontWeight: FontWeight.bold,
                   ),
-                  h1: TextStyle(
-                    color: theme.primaryColor,
+                  h1: const TextStyle(
+                    color: Color(0xFF0D9488),
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
-                  h2: TextStyle(
-                    color: theme.primaryColor,
+                  h2: const TextStyle(
+                    color: Color(0xFF0D9488),
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                  listBullet: TextStyle(
-                    color: theme.primaryColor,
+                  listBullet: const TextStyle(
+                    color: Color(0xFF0D9488),
                     fontSize: 15,
                   ),
                 ),
@@ -279,16 +312,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildInputArea(HealthProvider hp, bool isDark, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
+        color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
         ],
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -303,15 +337,21 @@ class _ChatScreenState extends State<ChatScreen> {
               decoration: InputDecoration(
                 hintText: 'Décrivez vos symptômes...',
                 hintStyle: TextStyle(
-                  color: isDark ? Colors.white38 : Colors.grey,
+                  color: isDark ? Colors.white38 : Colors.grey[400],
                 ),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF161616) : Colors.grey[50],
+                fillColor: isDark ? const Color(0xFF161616) : const Color(0xFFF1F5F9),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: isDark
-                      ? const BorderSide(color: Colors.white12)
-                      : BorderSide.none,
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -320,10 +360,23 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: IconButton.filled(
+          const SizedBox(width: 10),
+          // Gradient send button
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: ThemeNotifier.primaryGradient,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: IconButton(
               onPressed: hp.isTyping
                   ? null
                   : () async {
@@ -334,12 +387,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       await hp.analyzeSymptoms(text);
                       _scrollToBottom();
                     },
-              icon: const Icon(Icons.send_rounded),
-              style: IconButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(12),
-              ),
+              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              padding: const EdgeInsets.all(12),
             ),
           ),
         ],

@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:medinutri/models/health_models.dart';
-import 'package:medinutri/services/database_helper.dart';
+import 'package:medinutri/services/supabase_service.dart';
 import 'package:medinutri/services/groq_service.dart';
-import 'package:sqflite/sqflite.dart';
 
 class HealthProvider with ChangeNotifier {
   User? _currentUser;
@@ -47,14 +46,9 @@ class HealthProvider with ChangeNotifier {
   }
 
   Future<void> _loadData() async {
-    if (_currentUser == null) return;
-    final db = await DatabaseHelper.instance.database;
-
-    final chatData = await db.query(
-      'chat_history',
-      where: 'user_id = ? AND is_archived = 0',
-      whereArgs: [_currentUser!.id],
-    );
+    if (_currentUser == null || _currentUser!.id == null) return;
+    
+    final chatData = await SupabaseService.instance.getActiveChatHistory(_currentUser!.id!);
     _messages.clear();
     _messages.addAll(
       chatData.map(
@@ -62,29 +56,15 @@ class HealthProvider with ChangeNotifier {
       ),
     );
 
-    final planData = await db.query(
-      'nutrition_plans',
-      where: 'user_id = ?',
-      whereArgs: [_currentUser!.id],
-      orderBy: 'id DESC',
-      limit: 1,
-    );
-    if (planData.isNotEmpty) {
-      _currentPlan = NutritionPlan.fromMap(planData.first);
-    }
+    _currentPlan = await SupabaseService.instance.getLatestNutritionPlan(_currentUser!.id!);
+    
     notifyListeners();
   }
 
   Future<List<Conversation>> getArchivedConversations() async {
-    if (_currentUser == null) return [];
-    final db = await DatabaseHelper.instance.database;
-
-    final chatData = await db.query(
-      'chat_history',
-      where: 'user_id = ? AND is_archived = 1',
-      whereArgs: [_currentUser!.id],
-      orderBy: 'timestamp DESC',
-    );
+    if (_currentUser == null || _currentUser!.id == null) return [];
+    
+    final chatData = await SupabaseService.instance.getArchivedMessages(_currentUser!.id!);
 
     final Map<String, List<Map<String, String>>> groupedMessages = {};
     final Map<String, String> titles = {};
@@ -117,20 +97,14 @@ class HealthProvider with ChangeNotifier {
   }
 
   Future<void> deleteArchivedMessages() async {
-    if (_currentUser == null) return;
-    final db = await DatabaseHelper.instance.database;
-    await db.delete(
-      'chat_history',
-      where: 'user_id = ? AND is_archived = 1',
-      whereArgs: [_currentUser!.id],
-    );
+    if (_currentUser == null || _currentUser!.id == null) return;
+    await SupabaseService.instance.deleteArchivedMessages(_currentUser!.id!);
     notifyListeners();
   }
 
   Future<void> analyzeSymptoms(String text, {String? systemContext}) async {
     if (_currentUser == null) return;
 
-    // FIX: était non-awaité → race condition sur la DB
     await _addMessage('user', text);
     _isTyping = true;
     notifyListeners();
@@ -154,32 +128,31 @@ class HealthProvider with ChangeNotifier {
 
   Future<void> _addMessage(String role, String content) async {
     _messages.add({'role': role, 'content': content});
-    final db = await DatabaseHelper.instance.database;
 
     _activeConversationId ??= DateTime.now().millisecondsSinceEpoch.toString();
 
-    await db.insert('chat_history', {
-      'user_id': _currentUser!.id,
-      'role': role,
-      'content': content,
-      'timestamp': DateTime.now().toIso8601String(),
-      'is_archived': 0,
-      'conversation_id': _activeConversationId,
-    });
+    if (_currentUser != null && _currentUser!.id != null) {
+      await SupabaseService.instance.addMessage(_currentUser!.id!, {
+        'role': role,
+        'content': content,
+        'timestamp': DateTime.now().toIso8601String(),
+        'is_archived': false,
+        'conversation_id': _activeConversationId,
+      });
+    }
     notifyListeners();
   }
 
   /// Génère un plan nutritionnel 7 jours tunisien via l'IA avec vraie variété.
   Future<void> generateAndSavePlan({PatientProfile? updatedProfile}) async {
     final profileToUse = updatedProfile ?? _currentProfile;
-    if (_currentUser == null || profileToUse == null) return;
+    if (_currentUser == null || _currentUser!.id == null || profileToUse == null) return;
 
     _isTyping = true;
     _planError = null;
     _currentPlan = null;
     notifyListeners();
 
-    // FIX: Listes séparées par catégorie + shuffle aléatoire pour variété réelle
     final rng = Random();
     final now = DateTime.now();
 
@@ -222,12 +195,10 @@ class HealthProvider with ChangeNotifier {
       'Tajine de légumes et pois chiches au cumin',
     ]..shuffle(rng);
 
-    // Seed unique combinant timestamp + profil pour forcer la variété
     final seed = now.millisecondsSinceEpoch % 999983;
     final goalCode = profileToUse.goal.hashCode % 100;
     final weightCode = profileToUse.weight.toInt() % 10;
 
-    // Sélectionner 7 options uniques de chaque liste (déjà shufflée)
     final selectedBreakfasts = breakfasts.take(7).toList();
     final selectedLunches = lunches.take(7).toList();
     final selectedDinners = dinners.take(7).toList();
@@ -275,14 +246,12 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
 
       String jsonStr = response.trim();
 
-      // Nettoyer les blocs markdown si présents
       if (jsonStr.contains('```json')) {
         jsonStr = jsonStr.split('```json')[1].split('```')[0].trim();
       } else if (jsonStr.contains('```')) {
         jsonStr = jsonStr.split('```')[1].split('```')[0].trim();
       }
 
-      // Extraire l'objet JSON valide
       final start = jsonStr.indexOf('{');
       final end = jsonStr.lastIndexOf('}');
       if (start >= 0 && end > start) {
@@ -323,14 +292,12 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
             : ['Boire 2L d\'eau par jour.', 'Favoriser l\'huile d\'olive.'],
       );
 
-      final db = await DatabaseHelper.instance.database;
-      // Supprimer l'ancien plan avant d'insérer le nouveau
-      await db.delete(
-        'nutrition_plans',
-        where: 'user_id = ?',
-        whereArgs: [_currentUser!.id],
-      );
-      await db.insert('nutrition_plans', _currentPlan!.toMap());
+      final saveError = await SupabaseService.instance.saveNutritionPlan(_currentPlan!);
+      if (saveError != null) {
+        _planError = 'Erreur sauvegarde plan : $saveError';
+        _currentPlan = null;
+        return;
+      }
       _planError = null;
     } catch (e) {
       debugPrint('generateAndSavePlan error: $e');
@@ -342,9 +309,7 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
   }
 
   Future<void> clearChat() async {
-    if (_currentUser == null || _messages.isEmpty) return;
-
-    final db = await DatabaseHelper.instance.database;
+    if (_currentUser == null || _currentUser!.id == null || _messages.isEmpty) return;
 
     String title = "Nouvelle conversation";
     if (_messages.isNotEmpty) {
@@ -371,16 +336,7 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
         _activeConversationId ??
         DateTime.now().millisecondsSinceEpoch.toString();
 
-    await db.update(
-      'chat_history',
-      {
-        'is_archived': 1,
-        'conversation_id': newConvId,
-        'conversation_title': title,
-      },
-      where: 'user_id = ? AND is_archived = 0',
-      whereArgs: [_currentUser!.id],
-    );
+    await SupabaseService.instance.archiveConversation(_currentUser!.id!, newConvId, title);
 
     _messages.clear();
     _activeConversationId = null;
@@ -393,21 +349,18 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
     notifyListeners();
 
     try {
-      final db = await DatabaseHelper.instance.database;
-
       if (!forceRefresh) {
-        final rows = await db.query('ai_doctors');
+        final rows = await SupabaseService.instance.getAiDoctors();
         if (rows.isNotEmpty) {
-          final firstDate = DateTime.tryParse(
-            rows.first['created_at'] as String? ?? '',
-          );
-          if (firstDate != null &&
-              DateTime.now().difference(firstDate).inDays < 7) {
-            _doctors = rows.map((r) => Doctor.fromMap(r)).toList();
+          // Verify if they are old URL-based doctors or new asset-based ones
+          final isModern = rows.every((d) => d.imageUrl.startsWith('assets/'));
+          if (isModern) {
+            _doctors = rows;
             _isLoadingDoctors = false;
             notifyListeners();
             return;
           }
+          // If old, fall through to forceRefresh logic
         }
       }
 
@@ -418,13 +371,14 @@ RÉPONDS UNIQUEMENT EN JSON VALIDE (pas de texte avant ni après) :
       final prompt =
           '''Génère une liste de 8 médecins fictifs pour une app de télémédecine tunisienne.
 $symptomContext
- 
+  
 Règles :
 - Noms maghrébins/français réalistes
+- Utilise le titre 'Dr.' pour TOUS les médecins (ex: Dr. Ahmed Ben Ali, Dr. Fatma Mansour)
 - Spécialités variées
 - Genre mixte (4 hommes, 4 femmes)
 - Notes réalistes entre 4.5 et 5.0
- 
+  
 FORMAT JSON STRICT — UNIQUEMENT CE JSON :
 {"doctors":[{"id":"1","name":"Dr. Prénom Nom","specialty":"Spécialité médicale","rating":"4.8","gender":"male"},{"id":"2","name":"Dr. Prénom Nom","specialty":"Spécialité","rating":"4.9","gender":"female"}]}''';
 
@@ -449,41 +403,49 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
       final data = jsonDecode(json) as Map<String, dynamic>;
       final doctorsList = (data['doctors'] as List?) ?? [];
 
-      final now = DateTime.now().toIso8601String();
       final generated = <Doctor>[];
 
-      // FIX: vider la table avant de réinsérer
-      await db.delete('ai_doctors');
+      int maleCount = 0;
+      int femaleCount = 0;
 
       for (final d in doctorsList) {
         final map = Map<String, dynamic>.from(d as Map);
-        final gender = map['gender'] as String? ?? 'male';
+        final gender = (map['gender'] as String? ?? 'male').toLowerCase();
         final doctorId = map['id'] as String? ?? '${generated.length + 1}';
-        final imageUrl =
-            'https://i.pravatar.cc/150?u=doctor_${doctorId}_$gender';
+        
+        // Enforce Dr. title logic for everyone
+        String name = map['name'] as String? ?? 'Inconnu';
+        if (name.startsWith('Dra. ')) {
+          name = name.replaceFirst('Dra. ', 'Dr. ');
+        } else if (!name.startsWith('Dr. ')) {
+          name = 'Dr. $name';
+        }
 
-        final doctor = Doctor(
+        // Map to 8 unique local professional assets (4 male, 4 female)
+        String assetPath;
+        if (gender == 'female') {
+          final fIds = [2, 5, 7, 8];
+          final fId = fIds[femaleCount % fIds.length];
+          assetPath = 'assets/doctors/doc_${fId}_f.png';
+          femaleCount++;
+        } else {
+          final mIds = [1, 3, 4, 6];
+          final mId = mIds[maleCount % mIds.length];
+          assetPath = 'assets/doctors/doc_${mId}_m.png';
+          maleCount++;
+        }
+
+        generated.add(Doctor(
           id: doctorId,
-          name: map['name'] as String,
-          specialty: map['specialty'] as String,
+          name: name,
+          specialty: map['specialty'] as String? ?? 'Médecin',
           rating: map['rating'] as String? ?? '4.5',
-          imageUrl: imageUrl,
+          imageUrl: assetPath, // Now points to local assets
           gender: gender,
-        );
-        generated.add(doctor);
-
-        // FIX: inclure doctor_id explicitement dans l'insert
-        // (séparé de id qui est l'auto-increment SQLite)
-        await db.insert('ai_doctors', {
-          'doctor_id': doctorId, // ← colonne doctor_id = string IA
-          'name': doctor.name,
-          'specialty': doctor.specialty,
-          'rating': doctor.rating,
-          'image_url': doctor.imageUrl,
-          'gender': doctor.gender,
-          'created_at': now,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        ));
       }
+      
+      await SupabaseService.instance.clearAndSaveAiDoctors(generated);
       _doctors = generated;
     } catch (e) {
       debugPrint('loadOrGenerateDoctors error: $e');

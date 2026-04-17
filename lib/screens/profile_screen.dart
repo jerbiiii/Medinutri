@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:medinutri/models/health_models.dart';
 import 'package:medinutri/screens/archived_chats_screen.dart';
 import 'package:medinutri/services/auth_provider.dart';
+import 'package:medinutri/services/theme_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -28,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late String _activityLevel;
   late String _goal;
   String? _photoPath;
+  File? _localImageFile;
   bool _isPickingPhoto = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -35,22 +37,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final profile = Provider.of<AuthProvider>(
-      context,
-      listen: false,
-    ).currentProfile!;
-    _nameController = TextEditingController(text: profile.name);
-    _ageController = TextEditingController(text: profile.age.toString());
-    _weightController = TextEditingController(text: profile.weight.toString());
-    _heightController = TextEditingController(text: profile.height.toString());
-    _allergiesController = TextEditingController(text: profile.allergies);
-    _conditionsController = TextEditingController(
-      text: profile.medicalConditions,
-    );
-    _gender = profile.gender;
-    _activityLevel = profile.activityLevel;
-    _goal = profile.goal;
-    _photoPath = profile.photoPath;
+    final profile = Provider.of<AuthProvider>(context, listen: false).currentProfile;
+    
+    _nameController = TextEditingController(text: profile?.name ?? "");
+    _ageController = TextEditingController(text: profile?.age.toString() ?? "");
+    _weightController = TextEditingController(text: profile?.weight.toString() ?? "");
+    _heightController = TextEditingController(text: profile?.height.toString() ?? "");
+    _allergiesController = TextEditingController(text: profile?.allergies ?? "Aucune");
+    _conditionsController = TextEditingController(text: profile?.medicalConditions ?? "Aucune");
+    
+    _gender = profile?.gender ?? "Homme";
+    _activityLevel = profile?.activityLevel ?? "Modérée";
+    _goal = profile?.goal ?? "Équilibre alimentaire";
+    _photoPath = profile?.photoPath;
   }
 
   @override
@@ -80,11 +79,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Copier dans le dossier documents de l'app pour persistance
       final appDir = await getApplicationDocumentsDirectory();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.currentUser?.id ?? 0;
+      final userId = authProvider.currentUser?.id ?? 'guest';
       final destPath = p.join(appDir.path, 'profile_photo_$userId.jpg');
       await File(picked.path).copy(destPath);
 
-      setState(() => _photoPath = destPath);
+      setState(() {
+        _photoPath = destPath;
+        _localImageFile = File(destPath);
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -129,12 +131,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.photo_library_rounded,
-                    color: Colors.blue,
+                    color: Color(0xFF3B82F6),
                   ),
                 ),
                 title: const Text('Galerie photo'),
@@ -145,12 +147,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.camera_alt_rounded,
-                    color: Colors.green,
+                    color: Color(0xFF10B981),
                   ),
                 ),
                 title: const Text('Prendre une photo'),
@@ -188,9 +190,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleUpdate() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentProfile = authProvider.currentProfile;
+
+      if (currentProfile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur : profil non chargé. Veuillez vous reconnecter.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
       final updatedProfile = PatientProfile(
-        id: authProvider.currentProfile!.id,
-        userId: authProvider.currentProfile!.userId,
+        id: currentProfile.id,
+        userId: currentProfile.userId,
         name: _nameController.text.trim(),
         age: int.parse(_ageController.text.trim()),
         gender: _gender,
@@ -202,15 +216,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         goal: _goal,
         photoPath: _photoPath,
       );
-      await authProvider.updateProfile(updatedProfile);
+
+      final error = await authProvider.updateProfile(
+        updatedProfile,
+        imageFile: _localImageFile,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil mis à jour !'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
+        if (error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur sauvegarde : $error'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profil mis à jour !'),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+          Navigator.pop(context);
+        }
       }
     }
   }
@@ -221,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text('Mon Profil Santé')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -230,58 +257,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Photo de profil ──────────────────────
+              // ── Photo de profil with gradient border ──
               Center(
                 child: Stack(
                   children: [
                     GestureDetector(
                       onTap: _showPhotoOptions,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 110,
-                        height: 110,
+                      child: Container(
+                        padding: const EdgeInsets.all(3.5),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: theme.primaryColor,
-                            width: 3,
+                          gradient: const LinearGradient(
+                            colors: ThemeNotifier.primaryGradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.primaryColor.withValues(alpha: 0.25),
-                              blurRadius: 16,
-                              spreadRadius: 2,
+                              color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              spreadRadius: 4,
                             ),
                           ],
                         ),
-                        child: ClipOval(
-                          child: _isPickingPhoto
-                              ? Container(
-                                  color: isDark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[200],
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              : _photoPath != null &&
-                                    File(_photoPath!).existsSync()
-                              ? Image.file(
-                                  File(_photoPath!),
-                                  fit: BoxFit.cover,
-                                  width: 110,
-                                  height: 110,
-                                )
-                              : Container(
-                                  color: theme.primaryColor.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  child: Icon(
-                                    Icons.person_rounded,
-                                    size: 60,
-                                    color: theme.primaryColor,
-                                  ),
-                                ),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 110,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDark ? const Color(0xFF121212) : Colors.white,
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF121212) : Colors.white,
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: _isPickingPhoto
+                                ? Container(
+                                    color: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[200],
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Color(0xFF0D9488),
+                                      ),
+                                    ),
+                                  )
+                                : _localImageFile != null
+                                    ? Image.file(
+                                        _localImageFile!,
+                                        fit: BoxFit.cover,
+                                        width: 110,
+                                        height: 110,
+                                      )
+                                    : (_photoPath != null &&
+                                            _photoPath!.startsWith('http'))
+                                        ? Image.network(
+                                            _photoPath!,
+                                            fit: BoxFit.cover,
+                                            width: 110,
+                                            height: 110,
+                                            errorBuilder: (_, __, ___) => _personIcon(),
+                                          )
+                                        : (_photoPath != null &&
+                                                File(_photoPath!).existsSync())
+                                            ? Image.file(
+                                                File(_photoPath!),
+                                                fit: BoxFit.cover,
+                                                width: 110,
+                                                height: 110,
+                                                errorBuilder: (_, __, ___) => _personIcon(),
+                                              )
+                                            : _personIcon(),
+                          ),
                         ),
                       ),
                     ),
@@ -294,17 +343,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: theme.primaryColor,
+                            gradient: const LinearGradient(
+                              colors: ThemeNotifier.primaryGradient,
+                            ),
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isDark ? Colors.black : Colors.white,
-                              width: 2,
+                              width: 2.5,
                             ),
                           ),
                           child: const Icon(
                             Icons.camera_alt_rounded,
                             color: Colors.white,
-                            size: 18,
+                            size: 16,
                           ),
                         ),
                       ),
@@ -319,13 +370,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Appuyer pour modifier la photo',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? Colors.white38 : Colors.grey[500],
+                    color: isDark ? Colors.white38 : Colors.grey[400],
                   ),
                 ),
               ),
               const SizedBox(height: 32),
 
-              // ── Champs formulaire ────────────────────
+              // ── Section: Infos personnelles ───────────
+              _buildSectionTitle('Informations Personnelles', isDark)
+                  .animate().fadeIn(delay: 100.ms).slideX(begin: -0.05, end: 0),
+              const SizedBox(height: 16),
+
               _buildField(
                 'Nom complet',
                 _nameController,
@@ -344,7 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.number,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildDropdown(
                       value: _gender,
@@ -367,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.number,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _buildField(
                       'Taille (cm)',
@@ -379,11 +434,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ).animate().fadeIn(delay: 300.ms).slideX(),
-              const SizedBox(height: 16),
-              const Text(
-                'Informations Complémentaires',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const SizedBox(height: 28),
+
+              // ── Section: Infos complémentaires ────────
+              _buildSectionTitle('Informations Complémentaires', isDark)
+                  .animate().fadeIn(delay: 350.ms).slideX(begin: -0.05, end: 0),
               const SizedBox(height: 16),
               _buildDropdown(
                 label: "Niveau d'activité",
@@ -435,33 +490,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Icons.medical_services_outlined,
                 isDark,
               ),
-              const SizedBox(height: 32),
-              const Text(
-                'Sécurité & Historique',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const SizedBox(height: 28),
+
+              // ── Section: Sécurité ─────────────────────
+              _buildSectionTitle('Sécurité & Historique', isDark)
+                  .animate().fadeIn(delay: 400.ms).slideX(begin: -0.05, end: 0),
               const SizedBox(height: 16),
-              Card(
-                color: isDark ? const Color(0xFF121212) : Colors.white,
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF121212) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: isDark ? Border.all(color: Colors.white10) : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.0 : 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(
-                        Icons.lock_reset,
-                        color: Colors.orangeAccent,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                       ),
-                      title: const Text('Changer le mot de passe'),
-                      trailing: const Icon(Icons.chevron_right),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.lock_reset,
+                          color: Colors.orangeAccent,
+                          size: 20,
+                        ),
+                      ),
+                      title: const Text('Changer le mot de passe', style: TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => _showChangePasswordDialog(context),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: isDark ? Colors.white10 : Colors.grey[100]),
                     ListTile(
-                      leading: const Icon(
-                        Icons.archive_outlined,
-                        color: Colors.blueAccent,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
                       ),
-                      title: const Text('Conversations Archivées'),
-                      trailing: const Icon(Icons.chevron_right),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.archive_outlined,
+                          color: Color(0xFF3B82F6),
+                          size: 20,
+                        ),
+                      ),
+                      title: const Text('Conversations Archivées', style: TextStyle(fontWeight: FontWeight.w600)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -472,26 +560,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ).animate().fadeIn(delay: 400.ms).slideX(),
-              const SizedBox(height: 48),
-              ElevatedButton(
-                onPressed: _handleUpdate,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 40),
+
+              // ── Save button (gradient) ────────────────
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    colors: ThemeNotifier.primaryGradient,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0D9488).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _handleUpdate,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Enregistrer les modifications',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
-                child: const Text(
-                  'Enregistrer les modifications',
-                  style: TextStyle(fontSize: 18),
-                ),
-              ).animate().fadeIn(delay: 500.ms).scale(),
+              ).animate().fadeIn(delay: 500.ms).scale(begin: const Offset(0.98, 0.98), end: const Offset(1, 1)),
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, bool isDark) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: ThemeNotifier.primaryGradient,
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : const Color(0xFF1E293B),
+          ),
+        ),
+      ],
     );
   }
 
@@ -510,23 +645,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
               label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.grey[600],
+              ),
             ),
           ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161616) : Colors.grey[50],
             border: Border.all(
-              color: isDark ? Colors.white24 : Colors.grey[300]!,
+              color: isDark ? Colors.white24 : Colors.grey[200]!,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: true,
               value: value,
               dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               items: items
                   .map(
                     (v) => DropdownMenuItem<String>(value: v, child: Text(v)),
@@ -594,27 +734,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuler'),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                final error = await authProvider.changePassword(
-                  currentPasswordController.text,
-                  newPasswordController.text,
-                );
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(error ?? 'Mot de passe mis à jour !'),
-                      backgroundColor: error != null
-                          ? Colors.redAccent
-                          : Colors.green,
-                    ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: const LinearGradient(colors: ThemeNotifier.primaryGradient),
+            ),
+            child: ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final error = await authProvider.changePassword(
+                    currentPasswordController.text,
+                    newPasswordController.text,
                   );
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(error ?? 'Mot de passe mis à jour !'),
+                        backgroundColor: error != null
+                            ? Colors.redAccent
+                            : const Color(0xFF10B981),
+                      ),
+                    );
+                  }
                 }
-              }
-            },
-            child: const Text('Mettre à jour'),
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                shadowColor: Colors.transparent,
+              ),
+              child: const Text('Mettre à jour'),
+            ),
           ),
         ],
       ),
@@ -631,26 +782,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey),
-        prefixIcon: Icon(icon, color: isDark ? Colors.white70 : Colors.grey),
-        border: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          borderSide: BorderSide(
-            color: isDark ? Colors.white24 : Colors.grey[300]!,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          borderSide: BorderSide(
-            color: isDark ? Colors.white24 : Colors.grey[300]!,
-          ),
-        ),
+        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey[500]),
+        prefixIcon: Icon(icon, color: isDark ? Colors.white70 : Colors.grey[500]),
       ),
       validator: (value) =>
           (value == null || value.isEmpty) ? 'Champ requis' : null,
+    );
+  }
+
+  Widget _personIcon() {
+    return Container(
+      color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+      child: const Icon(
+        Icons.person_rounded,
+        size: 60,
+        color: Color(0xFF0D9488),
+      ),
     );
   }
 }
