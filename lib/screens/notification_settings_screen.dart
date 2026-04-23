@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:medinutri/services/notification_service.dart';
 import 'package:medinutri/services/theme_notifier.dart';
@@ -62,24 +63,23 @@ class _NotificationSettingsScreenState
             tooltip: 'Envoyer une notification test',
             onPressed: () async {
               await _notifService.showTestNotification();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.white, size: 20),
-                        SizedBox(width: 12),
-                        Text('Notification test envoyée !'),
-                      ],
-                    ),
-                    backgroundColor: const Color(0xFF10B981),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      SizedBox(width: 12),
+                      Text('Notification test envoyée !'),
+                    ],
                   ),
-                );
-              }
+                  backgroundColor: const Color(0xFF10B981),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              );
             },
           ),
         ],
@@ -120,6 +120,7 @@ class _NotificationSettingsScreenState
                     enabled: _breakfastEnabled,
                     time: _breakfastTime,
                     onToggle: (val) async {
+                      HapticFeedback.lightImpact();
                       setState(() => _breakfastEnabled = val);
                       await _notifService.setBreakfastEnabled(val);
                     },
@@ -143,6 +144,7 @@ class _NotificationSettingsScreenState
                     enabled: _lunchEnabled,
                     time: _lunchTime,
                     onToggle: (val) async {
+                      HapticFeedback.lightImpact();
                       setState(() => _lunchEnabled = val);
                       await _notifService.setLunchEnabled(val);
                     },
@@ -166,6 +168,7 @@ class _NotificationSettingsScreenState
                     enabled: _dinnerEnabled,
                     time: _dinnerTime,
                     onToggle: (val) async {
+                      HapticFeedback.lightImpact();
                       setState(() => _dinnerEnabled = val);
                       await _notifService.setDinnerEnabled(val);
                     },
@@ -362,11 +365,12 @@ class _NotificationSettingsScreenState
             scale: 1.15,
             child: Switch.adaptive(
               value: _globalEnabled,
-              activeColor: Colors.white,
+              activeThumbColor: Colors.white,
               activeTrackColor: Colors.white.withValues(alpha: 0.3),
               inactiveTrackColor:
                   isDark ? Colors.white12 : Colors.grey[300],
               onChanged: (val) async {
+                HapticFeedback.mediumImpact();
                 setState(() => _globalEnabled = val);
                 await _notifService.setEnabled(val);
               },
@@ -530,7 +534,7 @@ class _NotificationSettingsScreenState
           // Switch
           Switch.adaptive(
             value: enabled,
-            activeColor: iconColor,
+            activeThumbColor: iconColor,
             onChanged: _globalEnabled ? onToggle : null,
           ),
         ],
@@ -620,9 +624,10 @@ class _NotificationSettingsScreenState
 
           Switch.adaptive(
             value: _waterEnabled,
-            activeColor: Colors.cyan,
+            activeThumbColor: Colors.cyan,
             onChanged: _globalEnabled
                 ? (val) async {
+                    HapticFeedback.lightImpact();
                     setState(() => _waterEnabled = val);
                     await _notifService.setWaterEnabled(val);
                   }

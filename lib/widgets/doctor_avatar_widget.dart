@@ -204,7 +204,7 @@ class _DoctorAvatarWidgetState extends State<DoctorAvatarWidget>
         _thinkAnim,
         _legAnim,
       ]),
-      builder: (_, __) {
+      builder: (_, _) {
         // Smooth floating
         final floatY = math.sin(_floatAnim.value * math.pi) * 9.0;
 

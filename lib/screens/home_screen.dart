@@ -11,6 +11,7 @@ import 'package:medinutri/screens/telemedicine_screen.dart';
 import 'package:medinutri/screens/profile_screen.dart';
 import 'package:medinutri/screens/notification_settings_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:medinutri/widgets/skeleton_loader.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -228,8 +229,8 @@ class HomeScreen extends StatelessWidget {
                   _buildServiceCard(
                     context,
                     title: 'Télémédecine',
-                    subtitle: 'Consultez un médecin IA en vocal',
-                    icon: Icons.video_call_outlined,
+                    subtitle: 'Consultez un médecin IA par la voix',
+                    icon: Icons.record_voice_over_outlined,
                     color: const Color(0xFF3B82F6),
                     delay: 100,
                     onTap: () => Navigator.push(
@@ -300,21 +301,25 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _buildQuickStat(
-                        context,
-                        'IMC',
-                        profile?.bmi.toStringAsFixed(1) ?? '--',
-                        const Color(0xFF3B82F6),
-                        profile?.bmiStatus ?? 'N/A',
-                      ),
+                      profile == null 
+                        ? const Expanded(child: SkeletonLoader(width: double.infinity, height: 100, borderRadius: 20))
+                        : _buildQuickStat(
+                            context,
+                            'IMC',
+                            profile.bmi.toStringAsFixed(1),
+                            const Color(0xFF3B82F6),
+                            profile.bmiStatus,
+                          ),
                       const SizedBox(width: 12),
-                      _buildQuickStat(
-                        context,
-                        'Poids',
-                        '${profile?.weight ?? '--'} kg',
-                        const Color(0xFF10B981),
-                        'Dernière pesée',
-                      ),
+                      profile == null 
+                        ? const Expanded(child: SkeletonLoader(width: double.infinity, height: 100, borderRadius: 20))
+                        : _buildQuickStat(
+                            context,
+                            'Poids',
+                            '${profile.weight} kg',
+                            const Color(0xFF10B981),
+                            'Dernière pesée',
+                          ),
                     ],
                   ).animate(delay: 500.ms).fade(duration: 500.ms).slideY(begin: 0.1, end: 0),
                 ],
@@ -342,7 +347,7 @@ class HomeScreen extends StatelessWidget {
         fit: BoxFit.cover,
         width: size,
         height: size,
-        errorBuilder: (_, __, ___) => _fallbackIcon(size),
+        errorBuilder: (_, _, _) => _fallbackIcon(size),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Center(
@@ -363,7 +368,7 @@ class HomeScreen extends StatelessWidget {
         fit: BoxFit.cover,
         width: size,
         height: size,
-        errorBuilder: (_, __, ___) => _fallbackIcon(size),
+        errorBuilder: (_, _, _) => _fallbackIcon(size),
       );
     }
     

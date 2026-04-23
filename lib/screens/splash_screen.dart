@@ -234,7 +234,7 @@ class _SplashScreenState extends State<SplashScreen>
         top: top,
         child: AnimatedBuilder(
           animation: _particleController,
-          builder: (_, __) {
+          builder: (_, _) {
             final offset = sin(_particleController.value * 2 * pi + i) * 20;
             return Transform.translate(
               offset: Offset(0, offset),

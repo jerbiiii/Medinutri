@@ -10,7 +10,6 @@ class GroqService {
 
   static const String _chatModel = "llama-3.1-8b-instant";
   static const String _nutritionModel = "llama-3.3-70b-versatile";
-  static const String _visionModel = "llama-3.2-90b-vision-preview";
 
   GroqService();
 

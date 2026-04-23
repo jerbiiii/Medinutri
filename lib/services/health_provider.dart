@@ -204,7 +204,7 @@ class HealthProvider with ChangeNotifier {
     final selectedDinners = dinners.take(7).toList();
 
     final prompt =
-        '''VARIATION_SEED:$seed|PROFIL_CODE:${goalCode}_${weightCode}|TIMESTAMP:${now.toIso8601String()}
+        '''VARIATION_SEED:$seed|PROFIL_CODE:${goalCode}_$weightCode|TIMESTAMP:${now.toIso8601String()}
 
 Tu es un chef nutritionniste tunisien expert. Génère un plan nutritionnel UNIQUE et varié pour :
 - Nom : ${profileToUse.name}

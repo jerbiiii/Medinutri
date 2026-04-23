@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:medinutri/models/health_models.dart';
 import 'package:medinutri/services/health_provider.dart';
@@ -236,6 +237,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
       AvatarState.listening,
       status: 'Exprimez-vous librement...',
     );
+    HapticFeedback.heavyImpact();
     _micPulse.repeat(reverse: true);
 
     await _stt.listen(
@@ -250,6 +252,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
   Future<void> _stopListening() async {
     await _stt.stop();
+    HapticFeedback.selectionClick();
     _setAvatarState(AvatarState.idle);
     _micPulse.stop();
   }
@@ -313,7 +316,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
           // Animated background gradient
           AnimatedBuilder(
             animation: _bgPulse,
-            builder: (_, __) => Container(
+            builder: (_, _) => Container(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.2),
@@ -483,7 +486,7 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                         },
                         child: AnimatedBuilder(
                           animation: _micPulse,
-                          builder: (_, __) {
+                          builder: (_, _) {
                             final listening = _state == AvatarState.listening;
                             final scale = listening
                                 ? 1.0 + _micPulse.value * 0.12
@@ -526,6 +529,9 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
                           },
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      if (_state == AvatarState.listening)
+                        _buildWaveform(accent),
                       const SizedBox(height: 10),
                       Text(
                         'MODE MAINS-LIBRES',
@@ -639,6 +645,31 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
           end: const Offset(1.6, 1.6),
           duration: 700.ms,
         );
+  }
+
+  Widget _buildWaveform(Color accent) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        8,
+        (i) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          width: 3,
+          height: 15,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        )
+            .animate(onPlay: (c) => c.repeat(reverse: true))
+            .scaleY(
+              begin: 0.5,
+              end: 1.5 + (math.Random().nextDouble() * 1.5),
+              duration: Duration(milliseconds: 300 + (i * 50)),
+              curve: Curves.easeInOut,
+            ),
+      ),
+    );
   }
 }
 

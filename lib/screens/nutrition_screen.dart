@@ -5,6 +5,7 @@ import 'package:medinutri/services/theme_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:medinutri/screens/nutrition_form_screen.dart';
+import 'package:medinutri/widgets/skeleton_loader.dart';
 
 class NutritionScreen extends StatefulWidget {
   const NutritionScreen({super.key});
@@ -151,38 +152,22 @@ class _NutritionScreenState extends State<NutritionScreen> {
   }
 
   Widget _buildLoadingState(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: Color(0xFF0D9488),
-            ),
-          ),
+          const SkeletonLoader(width: double.infinity, height: 120, borderRadius: 20),
           const SizedBox(height: 24),
-          Text(
-            "Génération de votre programme\ntunisien en cours...",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : const Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Le modèle IA prépare 21 repas tunisiens pour vous.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: isDark ? Colors.white38 : Colors.grey[500],
-            ),
-          ),
+          const SkeletonLoader(width: double.infinity, height: 50, borderRadius: 25),
+          const SizedBox(height: 24),
+          const SkeletonLoader(width: 150, height: 24),
+          const SizedBox(height: 16),
+          ...List.generate(3, (index) => const CardSkeleton()),
+          const SizedBox(height: 24),
+          const SkeletonLoader(width: 150, height: 24),
+          const SizedBox(height: 16),
+          const SkeletonLoader(width: double.infinity, height: 80, borderRadius: 16),
         ],
       ).animate().fadeIn(),
     );

@@ -68,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.pop(context); // fermer le bottom sheet
     setState(() => _isPickingPhoto = true);
     try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final XFile? picked = await _picker.pickImage(
         source: source,
         maxWidth: 600,
@@ -78,7 +79,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Copier dans le dossier documents de l'app pour persistance
       final appDir = await getApplicationDocumentsDirectory();
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.currentUser?.id ?? 'guest';
       final destPath = p.join(appDir.path, 'profile_photo_$userId.jpg');
       await File(picked.path).copy(destPath);
@@ -318,7 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             fit: BoxFit.cover,
                                             width: 110,
                                             height: 110,
-                                            errorBuilder: (_, __, ___) => _personIcon(),
+                                            errorBuilder: (_, _, _) => _personIcon(),
                                           )
                                         : (_photoPath != null &&
                                                 File(_photoPath!).existsSync())
@@ -327,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 fit: BoxFit.cover,
                                                 width: 110,
                                                 height: 110,
-                                                errorBuilder: (_, __, ___) => _personIcon(),
+                                                errorBuilder: (_, _, _) => _personIcon(),
                                               )
                                             : _personIcon(),
                           ),
@@ -746,17 +746,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     currentPasswordController.text,
                     newPasswordController.text,
                   );
-                  if (mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(error ?? 'Mot de passe mis à jour !'),
-                        backgroundColor: error != null
-                            ? Colors.redAccent
-                            : const Color(0xFF10B981),
-                      ),
-                    );
-                  }
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error ?? 'Mot de passe mis à jour !'),
+                      backgroundColor: error != null
+                          ? Colors.redAccent
+                          : const Color(0xFF10B981),
+                    ),
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(

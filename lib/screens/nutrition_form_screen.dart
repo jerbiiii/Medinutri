@@ -177,8 +177,8 @@ class _NutritionFormScreenState extends State<NutritionFormScreen> {
                   final isSelected = _selectedGoal == goal;
                   final targetCal = tdee + goal.calorieAdjustment;
                   final calLabel = goal.calorieAdjustment == 0
-                      ? '${targetCal} kcal/jour'
-                      : '${targetCal} kcal/jour (${goal.calorieAdjustment > 0 ? '+' : ''}${goal.calorieAdjustment} kcal)';
+                      ? '$targetCal kcal/jour'
+                      : '$targetCal kcal/jour (${goal.calorieAdjustment > 0 ? '+' : ''}${goal.calorieAdjustment} kcal)';
 
                   return GestureDetector(
                     onTap: () => setState(() => _selectedGoal = goal),

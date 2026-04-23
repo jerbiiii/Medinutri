@@ -250,7 +250,7 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
                 width: 58,
                 height: 58,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => CircleAvatar(
+                errorBuilder: (_, _, _) => CircleAvatar(
                   radius: 29,
                   backgroundColor: const Color(0xFF0D9488).withValues(alpha: 0.1),
                   child: Text(
@@ -361,7 +361,7 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
                 ),
                 child: IconButton(
                   icon: const Icon(
-                    Icons.video_call_rounded,
+                    Icons.record_voice_over_rounded,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -375,7 +375,7 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Appel vidéo',
+                'Consultation Vocale',
                 style: TextStyle(
                   fontSize: 9,
                   color: isDark ? Colors.white60 : const Color(0xFF0D9488),
