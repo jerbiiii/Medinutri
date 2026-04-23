@@ -1,10 +1,5 @@
 -- ============================================================
 --  MediNutri — FULL TABLE RESET & SETUP
---  Run this in Supabase SQL Editor:
---  Dashboard → SQL Editor → New Query → Paste → Run
---
---  SAFE TO RUN EVEN IF TABLES ALREADY EXIST
---  (drops and recreates everything cleanly)
 -- ============================================================
 
 -- ── Drop existing tables (order matters for FK constraints) ─
@@ -115,3 +110,57 @@ CREATE POLICY "doctors_update_auth" ON public.ai_doctors
   FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "doctors_delete_auth" ON public.ai_doctors
   FOR DELETE USING (auth.role() = 'authenticated');
+
+
+-- ── 5. MEDICATIONS ──────────────────────────────────────────
+DROP TABLE IF EXISTS public.medication_logs CASCADE;
+DROP TABLE IF EXISTS public.medications CASCADE;
+
+CREATE TABLE public.medications (
+  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  dosage        TEXT NOT NULL DEFAULT '',
+  frequency     TEXT NOT NULL DEFAULT 'daily',
+  times_json    TEXT NOT NULL DEFAULT '["08:00"]',
+  start_date    DATE NOT NULL DEFAULT CURRENT_DATE,
+  end_date      DATE,
+  notes         TEXT DEFAULT '',
+  color         TEXT DEFAULT '#0D9488',
+  icon          TEXT DEFAULT 'medication',
+  is_active     BOOLEAN DEFAULT true,
+  created_at    TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.medications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "medications_select_own" ON public.medications
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "medications_insert_own" ON public.medications
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "medications_update_own" ON public.medications
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "medications_delete_own" ON public.medications
+  FOR DELETE USING (auth.uid() = user_id);
+
+
+-- ── 6. MEDICATION LOGS ──────────────────────────────────────
+CREATE TABLE public.medication_logs (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  medication_id   UUID NOT NULL REFERENCES public.medications(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  scheduled_time  TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'taken',
+  taken_at        TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.medication_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "med_logs_select_own" ON public.medication_logs
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "med_logs_insert_own" ON public.medication_logs
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "med_logs_update_own" ON public.medication_logs
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "med_logs_delete_own" ON public.medication_logs
+  FOR DELETE USING (auth.uid() = user_id);

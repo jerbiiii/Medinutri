@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:medinutri/models/health_models.dart';
 import 'package:medinutri/services/supabase_service.dart';
 import 'package:medinutri/services/groq_service.dart';
+import 'package:medinutri/services/widget_service.dart';
 
 class HealthProvider with ChangeNotifier {
   User? _currentUser;
@@ -36,16 +37,17 @@ class HealthProvider with ChangeNotifier {
     _currentUser = user;
     _currentProfile = profile;
     if (user != null) {
-      _loadData();
+      refreshData();
     } else {
       _messages.clear();
       _currentPlan = null;
       _planError = null;
     }
     notifyListeners();
+    _updateExternalWidget();
   }
 
-  Future<void> _loadData() async {
+  Future<void> refreshData() async {
     if (_currentUser == null || _currentUser!.id == null) return;
     
     final chatData = await SupabaseService.instance.getActiveChatHistory(_currentUser!.id!);
@@ -59,6 +61,7 @@ class HealthProvider with ChangeNotifier {
     _currentPlan = await SupabaseService.instance.getLatestNutritionPlan(_currentUser!.id!);
     
     notifyListeners();
+    _updateExternalWidget();
   }
 
   Future<List<Conversation>> getArchivedConversations() async {
@@ -498,5 +501,49 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
 
     localHistory.add({'role': 'assistant', 'content': response ?? ""});
     return response ?? "";
+  }
+
+  Future<void> _updateExternalWidget() async {
+    if (_currentUser == null || _currentProfile == null) return;
+    
+    // Get medications count
+    final meds = await SupabaseService.instance.getMedications(_currentUser!.id!);
+    
+    // Determine next meal
+    String nextMeal = "Aucun plan";
+    String nextMealTime = "";
+    if (_currentPlan != null) {
+      final now = DateTime.now();
+      final dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+      final todayName = dayNames[now.weekday - 1];
+      final dayPlan = _currentPlan!.weeklyMeals[todayName] ?? (_currentPlan!.weeklyMeals.values.isNotEmpty ? _currentPlan!.weeklyMeals.values.first : []);
+      
+      final hour = now.hour;
+      if (dayPlan.isNotEmpty) {
+        if (hour < 10) {
+          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('petit'), orElse: () => dayPlan[0]);
+          nextMeal = "Petit-déj: ${m.name}";
+          nextMealTime = "07:30";
+        } else if (hour < 15) {
+          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('déjeuner'), orElse: () => dayPlan.length > 1 ? dayPlan[1] : dayPlan[0]);
+          nextMeal = "Déjeuner: ${m.name}";
+          nextMealTime = "12:30";
+        } else {
+          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('dîner'), orElse: () => dayPlan.last);
+          nextMeal = "Dîner: ${m.name}";
+          nextMealTime = "19:30";
+        }
+      }
+    }
+
+    await WidgetService.updateWidget(
+      userName: _currentProfile!.name,
+      bmi: _currentProfile!.bmi,
+      bmiCategory: _currentProfile!.bmiStatus,
+      tdee: _currentProfile!.tdee.round(),
+      nextMeal: nextMeal,
+      nextMealTime: nextMealTime,
+      activeMedications: meds.length,
+    );
   }
 }

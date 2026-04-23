@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,9 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+      
+  /// Callback quand une notification est pressée ou déclenchée
+  Function(String?)? onNotificationPayload;
 
   // ── Clés SharedPreferences ──────────────────────────────
   static const _keyEnabled = 'notif_enabled';
@@ -64,6 +68,21 @@ class NotificationService {
   /// Initialise le plugin de notifications.
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
+    
+    // On calcule le décalage local manuellement (Ultra-stable pour Xiaomi)
+    final DateTime now = DateTime.now();
+    final Duration offset = now.timeZoneOffset;
+    
+    // Créer un ID compatible avec Android (ex: +01:00) au lieu de 'Local'
+    final String sign = offset.isNegative ? '-' : '+';
+    final String hours = offset.inHours.abs().toString().padLeft(2, '0');
+    final String minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final String offsetId = '$sign$hours:$minutes';
+    
+    final location = tz.Location(offsetId, [0], [0], [
+      tz.TimeZone(offset, isDst: false, abbreviation: 'LOC')
+    ]);
+    tz.setLocalLocation(location);
 
     const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings(
@@ -93,6 +112,34 @@ class NotificationService {
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin != null) {
+      // Création forcée des canaux pour qu'ils apparaissent dans les réglages Android
+      const medicationChannel = AndroidNotificationChannel(
+        'medinutri_meds_v3',
+        '💊 Médicaments',
+        description: 'Alarmes et rappels pour vos traitements médicaux',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      const mealChannel = AndroidNotificationChannel(
+        'medinutri_meals',
+        '🥗 Rappels de repas',
+        description: 'Notifications pour le petit-déjeuner, déjeuner et dîner',
+        importance: Importance.high,
+      );
+
+      const waterChannel = AndroidNotificationChannel(
+        'medinutri_water',
+        '💧 Hydratation',
+        description: 'Rappels pour boire de l\'eau',
+        importance: Importance.low,
+      );
+
+      await androidPlugin.createNotificationChannel(medicationChannel);
+      await androidPlugin.createNotificationChannel(mealChannel);
+      await androidPlugin.createNotificationChannel(waterChannel);
+
       await androidPlugin.requestNotificationsPermission();
       await androidPlugin.requestExactAlarmsPermission();
     }
@@ -100,6 +147,7 @@ class NotificationService {
 
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('[NotificationService] Notification tapped: ${response.payload}');
+    onNotificationPayload?.call(response.payload);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -349,28 +397,34 @@ class NotificationService {
 
     final scheduledDate = _nextInstanceOfTime(hour, minute);
 
-    await _plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
-      scheduledDate: scheduledDate,
-      notificationDetails: details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: payload,
-    );
-
-    debugPrint(
-        '[NotificationService] Scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)');
+    try {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: payload,
+      );
+      debugPrint(
+          '[NotificationService] Scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)');
+    } catch (e) {
+      debugPrint('[NotificationService] Error scheduling notification $id: $e');
+    }
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
-    return scheduled;
+    
+    return scheduledDate;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -422,5 +476,116 @@ class NotificationService {
       body: 'Les notifications fonctionnent parfaitement. Vos rappels de repas sont actifs.',
       notificationDetails: details,
     );
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  MEDICATION REMINDERS
+  // ─────────────────────────────────────────────────────────
+
+  static const _medicationMessages = [
+    '💊 C\'est l\'heure de votre médicament !',
+    '💊 N\'oubliez pas votre traitement !',
+    '💊 Rappel : prenez votre médicament maintenant.',
+    '💊 Votre santé compte — prenez votre médicament.',
+  ];
+
+  /// Schedule reminders for a single medication.
+  /// Uses IDs 500 + (hash % 100) to avoid collisions.
+  Future<void> scheduleMedicationReminders({
+    required String medicationId,
+    required String medicationName,
+    required String dosage,
+    required List<String> times,
+  }) async {
+    final baseId = 500 + (medicationId.hashCode.abs() % 100);
+
+    for (int i = 0; i < times.length; i++) {
+      final parts = times[i].split(':');
+      if (parts.length != 2) continue;
+      final hour = int.tryParse(parts[0]) ?? 8;
+      final minute = int.tryParse(parts[1]) ?? 0;
+
+      final msg = _medicationMessages[DateTime.now().day % _medicationMessages.length];
+      final body = dosage.isNotEmpty
+          ? '$msg\n$medicationName — $dosage'
+          : '$msg\n$medicationName';
+
+      await _scheduleMedicationNotification(
+        id: baseId + i,
+        title: '💊 $medicationName',
+        body: body,
+        hour: hour,
+        minute: minute,
+        payload: 'medication_$medicationId',
+      );
+    }
+  }
+
+  /// Cancel all reminders for a medication.
+  Future<void> cancelMedicationReminders(String medicationId) async {
+    final baseId = 500 + (medicationId.hashCode.abs() % 100);
+    // Cancel up to 5 time slots
+    for (int i = 0; i < 5; i++) {
+      await _plugin.cancel(id: baseId + i);
+    }
+    debugPrint('[NotificationService] Cancelled medication reminders for $medicationId');
+  }
+
+  Future<void> _scheduleMedicationNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+    required String payload,
+  }) async {
+    await _plugin.cancel(id: id);
+
+    final androidDetails = AndroidNotificationDetails(
+      'medinutri_meds_v3', // Nouveau ID pour forcer la mise à jour système
+      'Alertes Médicales Urgentes',
+      channelDescription: 'Canal pour les alarmes de santé critiques',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'Rappel Médicament',
+      category: AndroidNotificationCategory.alarm,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
+      icon: '@mipmap/launcher_icon',
+      color: const Color(0xFF0D9488),
+      fullScreenIntent: false, // On désactive le plein écran pour l'instant pour tester la notif simple
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final scheduledDate = _nextInstanceOfTime(hour, minute);
+
+    try {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: payload,
+      );
+      debugPrint(
+          '[NotificationService] Medication scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)');
+    } catch (e) {
+      debugPrint('[NotificationService] Error scheduling medication $id: $e');
+    }
   }
 }

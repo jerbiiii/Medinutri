@@ -10,6 +10,8 @@ import 'package:medinutri/screens/nutrition_screen.dart';
 import 'package:medinutri/screens/telemedicine_screen.dart';
 import 'package:medinutri/screens/profile_screen.dart';
 import 'package:medinutri/screens/notification_settings_screen.dart';
+import 'package:medinutri/screens/medications_screen.dart';
+import 'package:medinutri/screens/pharmacy_map_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:medinutri/widgets/skeleton_loader.dart';
 
@@ -267,6 +269,36 @@ class HomeScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const NotificationSettingsScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildServiceCard(
+                    context,
+                    title: 'Mes Médicaments',
+                    subtitle: 'Gérez vos traitements et rappels',
+                    icon: Icons.medication_liquid_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    delay: 400,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MedicationsScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildServiceCard(
+                    context,
+                    title: 'Pharmacies & Urgences',
+                    subtitle: 'Trouvez de l\'aide à proximité',
+                    icon: Icons.map_outlined,
+                    color: const Color(0xFF0D9488),
+                    delay: 500,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PharmacyMapScreen(),
                       ),
                     ),
                   ),

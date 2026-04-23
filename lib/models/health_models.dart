@@ -343,3 +343,126 @@ class Conversation {
     required this.messages,
   });
 }
+
+// ─────────────────────────────────────────────────────────
+//  MEDICATION
+// ─────────────────────────────────────────────────────────
+class Medication {
+  final String? id;
+  final String userId;
+  final String name;
+  final String dosage;
+  final String frequency;
+  final List<String> times;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final String notes;
+  final String color;
+  final String icon;
+  final bool isActive;
+  final DateTime? createdAt;
+
+  Medication({
+    this.id,
+    required this.userId,
+    required this.name,
+    this.dosage = '',
+    this.frequency = 'daily',
+    this.times = const ['08:00'],
+    DateTime? startDate,
+    this.endDate,
+    this.notes = '',
+    this.color = '#0D9488',
+    this.icon = 'medication',
+    this.isActive = true,
+    this.createdAt,
+  }) : startDate = startDate ?? DateTime.now();
+
+  String get frequencyLabel => switch (frequency) {
+    'daily' => 'Chaque jour',
+    'twice_daily' => '2 fois/jour',
+    'three_daily' => '3 fois/jour',
+    'weekly' => 'Chaque semaine',
+    'as_needed' => 'Si nécessaire',
+    _ => frequency,
+  };
+
+  Map<String, dynamic> toMap() => {
+    if (id != null) 'id': id,
+    'user_id': userId,
+    'name': name,
+    'dosage': dosage,
+    'frequency': frequency,
+    'times_json': jsonEncode(times),
+    'start_date': startDate.toIso8601String().split('T').first,
+    'end_date': endDate?.toIso8601String().split('T').first,
+    'notes': notes,
+    'color': color,
+    'icon': icon,
+    'is_active': isActive,
+  };
+
+  factory Medication.fromMap(Map<String, dynamic> map) {
+    List<String> parsedTimes = ['08:00'];
+    try {
+      final raw = map['times_json'];
+      if (raw is String && raw.isNotEmpty) {
+        parsedTimes = List<String>.from(jsonDecode(raw));
+      }
+    } catch (_) {}
+
+    return Medication(
+      id: map['id']?.toString(),
+      userId: map['user_id']?.toString() ?? '',
+      name: map['name'] as String,
+      dosage: map['dosage'] as String? ?? '',
+      frequency: map['frequency'] as String? ?? 'daily',
+      times: parsedTimes,
+      startDate: DateTime.tryParse(map['start_date']?.toString() ?? '') ?? DateTime.now(),
+      endDate: map['end_date'] != null ? DateTime.tryParse(map['end_date'].toString()) : null,
+      notes: map['notes'] as String? ?? '',
+      color: map['color'] as String? ?? '#0D9488',
+      icon: map['icon'] as String? ?? 'medication',
+      isActive: map['is_active'] as bool? ?? true,
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? ''),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  MEDICATION LOG
+// ─────────────────────────────────────────────────────────
+class MedicationLog {
+  final String? id;
+  final String medicationId;
+  final String userId;
+  final String scheduledTime;
+  final String status; // 'taken', 'skipped', 'postponed'
+  final DateTime takenAt;
+
+  MedicationLog({
+    this.id,
+    required this.medicationId,
+    required this.userId,
+    required this.scheduledTime,
+    this.status = 'taken',
+    DateTime? takenAt,
+  }) : takenAt = takenAt ?? DateTime.now();
+
+  Map<String, dynamic> toMap() => {
+    'medication_id': medicationId,
+    'user_id': userId,
+    'scheduled_time': scheduledTime,
+    'status': status,
+    'taken_at': takenAt.toIso8601String(),
+  };
+
+  factory MedicationLog.fromMap(Map<String, dynamic> map) => MedicationLog(
+    id: map['id']?.toString(),
+    medicationId: map['medication_id']?.toString() ?? '',
+    userId: map['user_id']?.toString() ?? '',
+    scheduledTime: map['scheduled_time'] as String? ?? '',
+    status: map['status'] as String? ?? 'taken',
+    takenAt: DateTime.tryParse(map['taken_at']?.toString() ?? '') ?? DateTime.now(),
+  );
+}

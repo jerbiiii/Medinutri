@@ -3,7 +3,9 @@ import 'package:medinutri/services/auth_provider.dart';
 import 'package:medinutri/services/health_provider.dart';
 import 'package:medinutri/services/notification_service.dart';
 import 'package:medinutri/services/theme_notifier.dart';
+import 'package:medinutri/services/widget_service.dart';
 import 'package:medinutri/screens/splash_screen.dart';
+import 'package:medinutri/screens/medication_alarm_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,8 +21,9 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  // Initialiser les notifications (restaure les rappels programmés)
+  // Initialiser les services locaux
   await NotificationService.instance.initialize();
+  await WidgetService.initialize();
 
   runApp(
     MultiProvider(
@@ -37,8 +40,50 @@ void main() async {
   );
 }
 
-class MediNutriApp extends StatelessWidget {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+class MediNutriApp extends StatefulWidget {
   const MediNutriApp({super.key});
+
+  @override
+  State<MediNutriApp> createState() => _MediNutriAppState();
+}
+
+class _MediNutriAppState extends State<MediNutriApp> {
+  @override
+  void initState() {
+    super.initState();
+    _setupNotificationListener();
+  }
+
+  void _setupNotificationListener() {
+    // Écouter les clics sur les notifications
+    NotificationService.instance.onNotificationPayload = (payload) {
+      if (payload != null && payload.startsWith('medication_')) {
+        final medId = payload.replaceFirst('medication_', '');
+        _showAlarmScreen(medId);
+      }
+    };
+  }
+
+  void _showAlarmScreen(String medId) {
+    // On attend un peu que l'app soit prête
+    Future.delayed(const Duration(milliseconds: 500), () {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        // Importer l'écran ici ou au début
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MedicationAlarmScreen(
+              medicationId: medId,
+              medicationName: 'Traitement', // On pourrait chercher le nom réel
+              dosage: 'À prendre maintenant',
+            ),
+          ),
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +91,7 @@ class MediNutriApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'MediNutri IA',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: themeNotifier.themeData.copyWith(
         textTheme: GoogleFonts.outfitTextTheme(

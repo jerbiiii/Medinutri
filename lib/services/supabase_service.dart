@@ -209,4 +209,111 @@ class SupabaseService {
       rethrow; // Rethrow to allow AuthProvider to catch and report
     }
   }
+
+  // ─────────────────────────────────────────────────────────
+  //  MEDICATIONS
+  // ─────────────────────────────────────────────────────────
+
+  Future<List<Medication>> getMedications(String userId) async {
+    try {
+      final response = await _client
+          .from('medications')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .order('created_at', ascending: false);
+      return response.map((data) => Medication.fromMap(data)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getMedications ERROR: $e');
+      return [];
+    }
+  }
+
+  Future<String?> saveMedication(Medication medication) async {
+    try {
+      final data = medication.toMap();
+      data.remove('id');
+      if (medication.id != null) {
+        await _client
+            .from('medications')
+            .update(data)
+            .eq('id', medication.id!);
+      } else {
+        await _client.from('medications').insert(data);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[SupabaseService] saveMedication ERROR: $e');
+      return e.toString();
+    }
+  }
+
+  Future<String?> deleteMedication(String medicationId) async {
+    try {
+      await _client.from('medications').delete().eq('id', medicationId);
+      return null;
+    } catch (e) {
+      debugPrint('[SupabaseService] deleteMedication ERROR: $e');
+      return e.toString();
+    }
+  }
+
+  Future<String?> deactivateMedication(String medicationId) async {
+    try {
+      await _client
+          .from('medications')
+          .update({'is_active': false})
+          .eq('id', medicationId);
+      return null;
+    } catch (e) {
+      debugPrint('[SupabaseService] deactivateMedication ERROR: $e');
+      return e.toString();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  MEDICATION LOGS
+  // ─────────────────────────────────────────────────────────
+
+  Future<String?> logMedication(MedicationLog log) async {
+    try {
+      await _client.from('medication_logs').insert(log.toMap());
+      return null;
+    } catch (e) {
+      debugPrint('[SupabaseService] logMedication ERROR: $e');
+      return e.toString();
+    }
+  }
+
+  Future<List<MedicationLog>> getMedicationLogs(String userId, {int limit = 50}) async {
+    try {
+      final response = await _client
+          .from('medication_logs')
+          .select()
+          .eq('user_id', userId)
+          .order('taken_at', ascending: false)
+          .limit(limit);
+      return response.map((data) => MedicationLog.fromMap(data)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getMedicationLogs ERROR: $e');
+      return [];
+    }
+  }
+
+  Future<List<MedicationLog>> getTodayLogs(String userId) async {
+    try {
+      final today = DateTime.now().toIso8601String().split('T').first;
+      final response = await _client
+          .from('medication_logs')
+          .select()
+          .eq('user_id', userId)
+          .gte('taken_at', '${today}T00:00:00')
+          .lte('taken_at', '${today}T23:59:59')
+          .order('taken_at', ascending: false);
+      return response.map((data) => MedicationLog.fromMap(data)).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getTodayLogs ERROR: $e');
+      return [];
+    }
+  }
 }
