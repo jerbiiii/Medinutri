@@ -1,49 +1,75 @@
-# Medinutri
+# 🏥 MediNutri IA — L'Assistant de Santé Intelligent
 
-## Overview
-Medinutri is a **Flutter** mobile application designed to help users track their nutrition, discover healthy recipes, and receive personalized dietary recommendations. The app provides a clean, modern UI with smooth animations and a premium user experience.
+MediNutri est une application mobile **Flutter** de pointe qui fusionne l'intelligence artificielle, la nutrition personnalisée et la télémédecine. Conçue avec une approche "AI-First", elle offre une expérience utilisateur premium pour la gestion proactive de la santé.
 
-## Features
-- **Meal logging**: Quickly add meals and view nutritional breakdowns.
-- **Recipe library**: Browse a curated collection of healthy recipes with detailed ingredient information.
-- **Personalized recommendations**: Get suggestions based on user preferences and dietary goals.
-- **Voice consultation**: Interact with a virtual nutritionist via voice chat.
-- **Doctor avatar widget**: Visual representation of health professionals within the app.
+---
 
-## Screens
-- `ChatScreen` – Real‑time chat with the nutrition assistant.
-- `VoiceConsultationScreen` – Voice‑based consultation interface.
-- `DoctorAvatarWidget` – Reusable widget displaying doctor avatars.
+## ✨ Fonctionnalités Clés
 
-## Getting Started
-1. **Prerequisites**
-   - Flutter SDK (stable channel) installed.
-   - Android Studio or Xcode for device emulation.
-2. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd medinutri
-   ```
-3. **Install dependencies**
-   ```bash
-   flutter pub get
-   ```
-4. **Run the app**
-   ```bash
-   flutter run
-   ```
+### 🤖 Docteur IA & Diagnostic
+*   **Analyse de symptômes** : Un chat intelligent propulsé par **Llama 3** pour une pré-analyse rapide et bienveillante.
+*   **Télémédecine Vocale Immersive** : Consultation vocale avec un avatar 3D synchronisé (lip-sync) pour un échange naturel et humain.
 
-## Development
-- The project follows a modular structure under `lib/`.
-- UI components are built with Flutter's widget system, leveraging custom themes for a premium look.
-- State management is handled using `Provider` (or your chosen solution).
+### 🥗 Nutrition Personnalisée (IA)
+*   **Génération de plans 7 jours** : Création automatique de programmes nutritionnels basés sur la cuisine tunisienne (Bssissa, Couscous, etc.).
+*   **Adaptation Intelligente** : Les plans s'ajustent selon l'IMC, le poids, les allergies et les objectifs de l'utilisateur.
 
-## Contributing
-Contributions are welcome! Please follow these steps:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/your-feature`).
-3. Ensure code follows the existing style and passes linting.
-4. Submit a pull request.
+### 💊 Gestion des Traitements
+*   **Rappels Intelligents** : Système d'alarmes plein écran (Full-screen intent) pour ne plus jamais rater un médicament.
+*   **Suivi de santé** : Tableau de bord en temps réel (Poids, IMC, Prochain repas).
 
-## License
-This project is licensed under the MIT License.
+### 📍 Services de Proximité
+*   **Carte interactive** : Localisation instantanée des pharmacies et services d'urgence à proximité.
+
+---
+
+## 🛠 Stack Technique
+
+*   **Frontend** : Flutter & Provider (Gestion d'état)
+*   **Design System** : Thème Premium (Mode Sombre/Clair), Google Fonts (Outfit), Flutter Animate
+*   **Backend** : Supabase (Authentification, Base de données temps réel, Storage)
+*   **IA Engine** : Groq API (Modèles Llama 3.3 70B & 3.1 8B)
+*   **Services** : Flutter TTS (Synthèse vocale), Speech To Text (Reconnaissance vocale)
+
+---
+
+## 🚀 Installation & Configuration
+
+### 1. Prérequis
+*   Flutter SDK (dernière version stable)
+*   Un projet Supabase actif
+*   Une clé API Groq
+
+### 2. Configuration
+Créez un fichier `.env` à la racine du projet :
+```env
+SUPABASE_URL=votre_url_supabase
+SUPABASE_ANON_KEY=votre_cle_anonyme
+GROQ_API_KEY=votre_cle_groq
+```
+
+### 3. Lancement
+```bash
+flutter pub get
+flutter run
+```
+
+---
+
+## 🛡️ Sécurité & Confidentialité
+*   **Données chiffrées** : Toutes les communications avec Supabase sont sécurisées via HTTPS/SSL.
+*   **Protection RLS** : La base de données utilise le *Row Level Security* pour garantir que seul l'utilisateur peut accéder à ses propres données de santé.
+
+---
+
+## 👨‍💻 Architecture du Projet
+L'application suit une structure modulaire :
+- `lib/screens` : Interfaces utilisateur réactives et animées.
+- `lib/services` : Logique métier (Auth, Santé, Notifications, IA).
+- `lib/models` : Modèles de données typés (Patient, Médicament, Plan Nutrition).
+- `lib/widgets` : Composants UI réutilisables et widgets 3D.
+
+---
+
+## 📄 Licence
+Ce projet est distribué sous licence MIT.
