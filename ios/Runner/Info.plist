@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MediNutri a besoin d'accéder au microphone pour la consultation vocale avec le docteur IA.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>MediNutri utilise la reconnaissance vocale pour comprendre vos symptômes lors de la consultation.</string>
 </dict>
 </plist>

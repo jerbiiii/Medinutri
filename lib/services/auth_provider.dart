@@ -76,9 +76,11 @@ class AuthProvider with ChangeNotifier {
     if (cleaned.contains('@') && cleaned.contains('.')) {
       return cleaned; // It's already an email
     }
-    // Sanitize username (replace symbols that break email format)
-    final sanitized = cleaned.replaceAll(RegExp(r'[^a-z0-9._]'), '_');
-    return "$sanitized@medinutri.io";
+    // Sanitize username: only keep alphanumeric, dots, underscores and hyphens
+    final sanitized = cleaned.replaceAll(RegExp(r'[^a-z0-9._\-]'), '');
+    return sanitized.isEmpty 
+        ? "user_${DateTime.now().millisecondsSinceEpoch}@medinutri.io" 
+        : "$sanitized@medinutri.io";
   }
 
   Future<String?> signUp(String username, String password, PatientProfile profileData) async {
@@ -124,10 +126,16 @@ class AuthProvider with ChangeNotifier {
       return null; // Success
     } on sb.AuthException catch (e) {
       debugPrint("Supabase Auth Error (Sign Up): ${e.message} (Code: ${e.statusCode})");
+      
+      String errorMessage = e.message;
+      if (e.message.contains("already registered") || e.message.contains("already exists")) {
+        errorMessage = "Ce nom d'utilisateur est déjà utilisé. Veuillez vous connecter ou en choisir un autre.";
+      }
+
       _isLoading = false;
       _isSigningUp = false;
       notifyListeners();
-      return e.message;
+      return errorMessage;
     } catch (e) {
       debugPrint("General Error (Sign Up): $e");
       _isLoading = false;

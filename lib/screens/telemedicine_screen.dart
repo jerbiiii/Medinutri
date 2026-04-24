@@ -14,9 +14,6 @@ class TelemedicineScreen extends StatefulWidget {
 }
 
 class _TelemedicineScreenState extends State<TelemedicineScreen> {
-  String? _diagnosticSummary;
-  bool _loadingDiagnosis = false;
-
   @override
   void initState() {
     super.initState();
@@ -29,19 +26,6 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
     final hp = Provider.of<HealthProvider>(context, listen: false);
     // Charger/générer médecins en arrière-plan
     hp.loadOrGenerateDoctors();
-    // Charger le résumé diagnostic
-    _loadDiagnosis(hp);
-  }
-
-  Future<void> _loadDiagnosis(HealthProvider hp) async {
-    setState(() => _loadingDiagnosis = true);
-    final summary = await hp.generateDiagnosticSummary();
-    if (mounted) {
-      setState(() {
-        _diagnosticSummary = summary;
-        _loadingDiagnosis = false;
-      });
-    }
   }
 
   @override
@@ -60,21 +44,14 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
             tooltip: 'Actualiser les médecins',
             onPressed: () {
               hp.loadOrGenerateDoctors(forceRefresh: true);
-              _loadDiagnosis(hp);
             },
           ),
         ],
       ),
       body: Column(
         children: [
-          // ── Diagnostic card ─────────────────────────
-          _buildDiagnosticCard(
-            isDark,
-            theme,
-          ).animate().fadeIn().slideY(begin: 0.1, end: 0),
-
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
             child: Row(
               children: [
                 Text(
@@ -106,102 +83,6 @@ class _TelemedicineScreenState extends State<TelemedicineScreen> {
                     ).animate().fadeIn(delay: (100 + i * 80).ms).slideX(),
                   ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────
-  //  DIAGNOSTIC CARD
-  // ─────────────────────────────────────────────────────
-  Widget _buildDiagnosticCard(bool isDark, ThemeData theme) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : const LinearGradient(
-                colors: [Color(0xFF0D9488), Color(0xFF38BDF8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-        color: isDark ? const Color(0xFF121212) : null,
-        borderRadius: BorderRadius.circular(20),
-        border: isDark ? Border.all(color: Colors.white10) : null,
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.transparent
-                : const Color(0xFF0D9488).withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.verified_user,
-                  color: isDark ? const Color(0xFF0D9488) : Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Diagnostic préliminaire IA',
-                style: TextStyle(
-                  color: isDark ? Colors.white : Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _loadingDiagnosis
-              ? Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(
-                          isDark ? const Color(0xFF0D9488) : Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Analyse de votre dernière consultation...',
-                      style: TextStyle(
-                        color: isDark ? Colors.white60 : Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                )
-              : Text(
-                  _diagnosticSummary ??
-                      'Consultez le Dr. Vitality pour obtenir un diagnostic.',
-                  style: TextStyle(
-                    color: isDark
-                        ? Colors.white70
-                        : Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
         ],
       ),
     );

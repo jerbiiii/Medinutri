@@ -60,24 +60,29 @@ class _MediNutriAppState extends State<MediNutriApp> {
     // Écouter les clics sur les notifications
     NotificationService.instance.onNotificationPayload = (payload) {
       if (payload != null && payload.startsWith('medication_')) {
-        final medId = payload.replaceFirst('medication_', '');
-        _showAlarmScreen(medId);
+        final parts = payload.split('|');
+        if (parts.length >= 1) {
+          final medId = parts[0].replaceFirst('medication_', '');
+          final name = parts.length > 1 ? parts[1] : 'Traitement';
+          final dosage = parts.length > 2 ? parts[2] : 'À prendre maintenant';
+          
+          _showAlarmScreen(medId, name, dosage);
+        }
       }
     };
   }
 
-  void _showAlarmScreen(String medId) {
+  void _showAlarmScreen(String medId, String name, String dosage) {
     // On attend un peu que l'app soit prête
     Future.delayed(const Duration(milliseconds: 500), () {
       final context = navigatorKey.currentContext;
       if (context != null) {
-        // Importer l'écran ici ou au début
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => MedicationAlarmScreen(
               medicationId: medId,
-              medicationName: 'Traitement', // On pourrait chercher le nom réel
-              dosage: 'À prendre maintenant',
+              medicationName: name,
+              dosage: dosage,
             ),
           ),
         );

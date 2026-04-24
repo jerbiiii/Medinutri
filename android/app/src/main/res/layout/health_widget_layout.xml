@@ -4,7 +4,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="12dp"
-    android:background="@drawable/widget_bg">
+    android:background="@drawable/widget_bg"
+    android:id="@+id/widget_container">
 
     <!-- Header -->
     <LinearLayout
@@ -19,34 +20,24 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="🩺 MediNutri"
-            android:textSize="15sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
+            android:textSize="14sp"
+            android:textColor="#FFFFFF" />
 
         <TextView
             android:id="@+id/widget_last_update"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="⏱ --:--"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textColor="#80FFFFFF" />
     </LinearLayout>
 
-    <!-- Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="6dp"
-        android:background="#20FFFFFF" />
-
-    <!-- Stats Row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
 
-        <!-- BMI -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -59,20 +50,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="20sp"
-                android:textColor="#5EEAD4"
-                android:textStyle="bold" />
+                android:textSize="18sp"
+                android:textColor="#5EEAD4" />
 
             <TextView
                 android:id="@+id/widget_bmi_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="IMC"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textColor="#80FFFFFF" />
         </LinearLayout>
 
-        <!-- TDEE -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -85,61 +74,79 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🔥 -- kcal"
-                android:textSize="13sp"
-                android:textColor="#FCD34D"
-                android:textStyle="bold" />
+                android:textSize="12sp"
+                android:textColor="#FCD34D" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="TDEE"
-                android:textSize="10sp"
+                android:textSize="9sp"
+                android:textColor="#80FFFFFF" />
+        </LinearLayout>
+        
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/widget_medications"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💊 0"
+                android:textSize="12sp"
+                android:textColor="#A0AEC0" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Meds"
+                android:textSize="9sp"
                 android:textColor="#80FFFFFF" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="6dp"
-        android:background="#20FFFFFF" />
-
-    <!-- Next Meal -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:id="@+id/widget_next_meal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🍽️ Aucun plan"
-            android:textSize="12sp"
-            android:textColor="#E2E8F0" />
-
-        <TextView
-            android:id="@+id/widget_meal_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="11sp"
-            android:textColor="#0D9488"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- Medications -->
     <TextView
-        android:id="@+id/widget_medications"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="💊 0 médicament(s)"
+        android:layout_marginTop="8dp"
+        android:text="🍽️ Plan du jour"
         android:textSize="11sp"
-        android:textColor="#A0AEC0" />
+        android:textColor="#80FFFFFF"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_breakfast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="☕ Petit-déj: --"
+        android:textSize="11sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#E2E8F0" />
+
+    <TextView
+        android:id="@+id/widget_lunch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🍱 Déjeuner: --"
+        android:textSize="11sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#E2E8F0" />
+
+    <TextView
+        android:id="@+id/widget_dinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🥣 Dîner: --"
+        android:textSize="11sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#E2E8F0" />
 
 </LinearLayout>

@@ -5,8 +5,27 @@ import 'package:provider/provider.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 
-class ArchivedChatsScreen extends StatelessWidget {
+class ArchivedChatsScreen extends StatefulWidget {
   const ArchivedChatsScreen({super.key});
+
+  @override
+  State<ArchivedChatsScreen> createState() => _ArchivedChatsScreenState();
+}
+
+class _ArchivedChatsScreenState extends State<ArchivedChatsScreen> {
+  late Future<List<Conversation>> _conversationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshConversations();
+  }
+
+  void _refreshConversations() {
+    setState(() {
+      _conversationsFuture = Provider.of<HealthProvider>(context, listen: false).getArchivedConversations();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +46,7 @@ class ArchivedChatsScreen extends StatelessWidget {
         ],
       ),
       body: FutureBuilder<List<Conversation>>(
-        future: healthProvider.getArchivedConversations(),
+        future: _conversationsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -75,7 +94,7 @@ class ArchivedChatsScreen extends StatelessWidget {
                 onTap: () => Navigator.push(
                   context, 
                   MaterialPageRoute(builder: (_) => ConversationDetailScreen(conversation: conv))
-                ),
+                ).then((_) => _refreshConversations()),
               );
             },
           );
@@ -95,8 +114,9 @@ class ArchivedChatsScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               await provider.deleteArchivedMessages();
-              if (context.mounted) {
+              if (mounted) {
                 Navigator.pop(context);
+                _refreshConversations();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Historique effacé")),
                 );

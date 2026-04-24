@@ -5,19 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
-/// Service de notifications pour les rappels de repas MediNutri.
-/// Gère les rappels pour le petit-déjeuner, déjeuner et dîner.
+/// Service de notifications pour les rappels de repas et médicaments MediNutri.
 class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
-      
+
   /// Callback quand une notification est pressée ou déclenchée
   Function(String?)? onNotificationPayload;
 
-  // ── Clés SharedPreferences ──────────────────────────────
+  // ── Clés SharedPreferences ──────────────────────────────────
   static const _keyEnabled = 'notif_enabled';
   static const _keyBreakfastHour = 'notif_breakfast_hour';
   static const _keyBreakfastMin = 'notif_breakfast_min';
@@ -30,13 +29,14 @@ class NotificationService {
   static const _keyDinnerEnabled = 'notif_dinner_on';
   static const _keyWaterEnabled = 'notif_water_on';
 
-  // ── IDs de notifications ────────────────────────────────
+  // ── IDs de notifications repas ──────────────────────────────
   static const _breakfastId = 100;
   static const _lunchId = 200;
   static const _dinnerId = 300;
   // Water IDs: 400-409
+  // Medication IDs: see _medicationNotifId() — range 10000-109999
 
-  // ── Messages de notification variés ─────────────────────
+  // ── Messages de notification variés ─────────────────────────
   static const _breakfastMessages = [
     '🌅 Bonjour ! C\'est l\'heure du petit-déjeuner. Consultez votre plan MediNutri !',
     '☀️ Bien dormi ? Commencez la journée avec un bon petit-déj tunisien !',
@@ -65,26 +65,51 @@ class NotificationService {
     '🥤 Rappel : boire de l\'eau = plus d\'énergie !',
   ];
 
+  // ── FIX BUG #3 : Génération d'ID unique sans collision ──────
+  //
+  // Ancien code (BUGUÉ) : 500 + (medicationId.hashCode.abs() % 100)
+  //   → seulement 100 slots pour TOUS les médicaments × TOUS leurs horaires
+  //   → collisions quasi-certaines dès le 2e médicament.
+  //
+  // Nouveau code : on extrait 5 chiffres hex du milieu de l'UUID
+  //   → 100 000 slots distincts pour les bases, × 10 horaires = 1 000 000 IDs
+  //   → plage 10000-109999 (bien séparée des IDs repas 100-409).
+  int _medicationNotifId(String medicationId, int timeIndex) {
+    // UUID format : xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    // On prend les 5 derniers caractères hex du dernier groupe pour la base.
+    final clean = medicationId.replaceAll('-', '');
+    final segment = clean.length >= 10
+        ? clean.substring(clean.length - 10, clean.length - 5)
+        : clean.padLeft(5, '0').substring(0, 5);
+    final base =
+        int.tryParse(segment, radix: 16) ?? medicationId.hashCode.abs();
+    // timeIndex est borné à 9 (max 10 horaires par médicament)
+    return 10000 + (base % 10000) * 10 + (timeIndex % 10);
+  }
+
   /// Initialise le plugin de notifications.
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
-    
-    // On calcule le décalage local manuellement (Ultra-stable pour Xiaomi)
+
+    // Fuseau horaire local fixe (compatible Xiaomi / Android strict)
     final DateTime now = DateTime.now();
     final Duration offset = now.timeZoneOffset;
-    
-    // Créer un ID compatible avec Android (ex: +01:00) au lieu de 'Local'
     final String sign = offset.isNegative ? '-' : '+';
     final String hours = offset.inHours.abs().toString().padLeft(2, '0');
-    final String minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final String minutes = (offset.inMinutes.abs() % 60).toString().padLeft(
+      2,
+      '0',
+    );
     final String offsetId = '$sign$hours:$minutes';
-    
+
     final location = tz.Location(offsetId, [0], [0], [
-      tz.TimeZone(offset, isDst: false, abbreviation: 'LOC')
+      tz.TimeZone(offset, isDst: false, abbreviation: 'LOC'),
     ]);
     tz.setLocalLocation(location);
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/launcher_icon',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -101,18 +126,17 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Demander la permission sur Android 13+
     await _requestPermissions();
-
-    // Restaurer les notifications programmées si activées
     await _restoreScheduledNotifications();
   }
 
   Future<void> _requestPermissions() async {
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin != null) {
-      // Création forcée des canaux pour qu'ils apparaissent dans les réglages Android
+      // Créer les canaux Android
       const medicationChannel = AndroidNotificationChannel(
         'medinutri_meds_v3',
         '💊 Médicaments',
@@ -121,14 +145,12 @@ class NotificationService {
         playSound: true,
         enableVibration: true,
       );
-
       const mealChannel = AndroidNotificationChannel(
         'medinutri_meals',
         '🥗 Rappels de repas',
         description: 'Notifications pour le petit-déjeuner, déjeuner et dîner',
         importance: Importance.high,
       );
-
       const waterChannel = AndroidNotificationChannel(
         'medinutri_water',
         '💧 Hydratation',
@@ -140,13 +162,17 @@ class NotificationService {
       await androidPlugin.createNotificationChannel(mealChannel);
       await androidPlugin.createNotificationChannel(waterChannel);
 
+      // Demander la permission POST_NOTIFICATIONS (Android 13+)
       await androidPlugin.requestNotificationsPermission();
+      // Demander la permission SCHEDULE_EXACT_ALARM (Android 12+)
       await androidPlugin.requestExactAlarmsPermission();
     }
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('[NotificationService] Notification tapped: ${response.payload}');
+    debugPrint(
+      '[NotificationService] Notification tapped: ${response.payload}',
+    );
     onNotificationPayload?.call(response.payload);
   }
 
@@ -291,7 +317,7 @@ class NotificationService {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  PROGRAMMER LES NOTIFICATIONS
+  //  PROGRAMMER LES NOTIFICATIONS REPAS
   // ─────────────────────────────────────────────────────────
 
   Future<void> scheduleAllMealReminders() async {
@@ -303,7 +329,8 @@ class NotificationService {
 
   Future<void> _scheduleBreakfast() async {
     final time = await getBreakfastTime();
-    final msg = _breakfastMessages[DateTime.now().day % _breakfastMessages.length];
+    final msg =
+        _breakfastMessages[DateTime.now().day % _breakfastMessages.length];
     await _scheduleDailyNotification(
       id: _breakfastId,
       title: '🌅 Petit-déjeuner',
@@ -341,7 +368,6 @@ class NotificationService {
   }
 
   Future<void> _scheduleWaterReminders() async {
-    // Rappels d'eau toutes les 2h entre 8h et 22h
     final hours = [8, 10, 12, 14, 16, 18, 20, 22];
     for (int i = 0; i < hours.length; i++) {
       final msg = _waterMessages[i % _waterMessages.length];
@@ -378,10 +404,7 @@ class NotificationService {
       ledColor: const Color(0xFF448AFF),
       ledOnMs: 1000,
       ledOffMs: 500,
-      styleInformation: BigTextStyleInformation(
-        body,
-        contentTitle: title,
-      ),
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -394,7 +417,6 @@ class NotificationService {
       android: androidDetails,
       iOS: iosDetails,
     );
-
     final scheduledDate = _nextInstanceOfTime(hour, minute);
 
     try {
@@ -409,21 +431,28 @@ class NotificationService {
         payload: payload,
       );
       debugPrint(
-          '[NotificationService] Scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)');
+        '[NotificationService] Meal scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)',
+      );
     } catch (e) {
-      debugPrint('[NotificationService] Error scheduling notification $id: $e');
+      debugPrint(
+        '[NotificationService] Error scheduling meal notification $id: $e',
+      );
     }
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
-    
     return scheduledDate;
   }
 
@@ -447,7 +476,7 @@ class NotificationService {
     }
   }
 
-  /// Envoie une notification immédiate (pour le test).
+  /// Envoie une notification immédiate (test).
   Future<void> showTestNotification() async {
     const androidDetails = AndroidNotificationDetails(
       'medinutri_meals',
@@ -458,18 +487,15 @@ class NotificationService {
       icon: '@mipmap/launcher_icon',
       color: Color(0xFF448AFF),
     );
-
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
-
     await _plugin.show(
       id: 999,
       title: '✅ MediNutri — Test réussi !',
@@ -489,46 +515,53 @@ class NotificationService {
     '💊 Votre santé compte — prenez votre médicament.',
   ];
 
-  /// Schedule reminders for a single medication.
-  /// Uses IDs 500 + (hash % 100) to avoid collisions.
+  /// Schedule daily reminders for a single medication.
+  /// Uses _medicationNotifId() to avoid ID collisions between medications.
   Future<void> scheduleMedicationReminders({
     required String medicationId,
     required String medicationName,
     required String dosage,
     required List<String> times,
   }) async {
-    final baseId = 500 + (medicationId.hashCode.abs() % 100);
-
     for (int i = 0; i < times.length; i++) {
       final parts = times[i].split(':');
       if (parts.length != 2) continue;
       final hour = int.tryParse(parts[0]) ?? 8;
       final minute = int.tryParse(parts[1]) ?? 0;
 
-      final msg = _medicationMessages[DateTime.now().day % _medicationMessages.length];
+      final msg =
+          _medicationMessages[DateTime.now().day % _medicationMessages.length];
       final body = dosage.isNotEmpty
           ? '$msg\n$medicationName — $dosage'
           : '$msg\n$medicationName';
 
+      // ── FIX BUG #3 : utilise _medicationNotifId au lieu de l'ancien calcul ──
+      final notifId = _medicationNotifId(medicationId, i);
+
+      // Payload enrichi pour l'alarme : id|nom|dosage
+      final enrichedPayload = 'medication_$medicationId|$medicationName|$dosage';
+
       await _scheduleMedicationNotification(
-        id: baseId + i,
+        id: notifId,
         title: '💊 $medicationName',
         body: body,
         hour: hour,
         minute: minute,
-        payload: 'medication_$medicationId',
+        payload: enrichedPayload,
       );
     }
   }
 
   /// Cancel all reminders for a medication.
   Future<void> cancelMedicationReminders(String medicationId) async {
-    final baseId = 500 + (medicationId.hashCode.abs() % 100);
-    // Cancel up to 5 time slots
-    for (int i = 0; i < 5; i++) {
-      await _plugin.cancel(id: baseId + i);
+    // Cancel up to 10 time slots (consistent with scheduleMedicationReminders)
+    for (int i = 0; i < 10; i++) {
+      final notifId = _medicationNotifId(medicationId, i);
+      await _plugin.cancel(id: notifId);
     }
-    debugPrint('[NotificationService] Cancelled medication reminders for $medicationId');
+    debugPrint(
+      '[NotificationService] Cancelled medication reminders for $medicationId',
+    );
   }
 
   Future<void> _scheduleMedicationNotification({
@@ -542,20 +575,22 @@ class NotificationService {
     await _plugin.cancel(id: id);
 
     final androidDetails = AndroidNotificationDetails(
-      'medinutri_meds_v3', // Nouveau ID pour forcer la mise à jour système
+      'medinutri_meds_v3',
       'Alertes Médicales Urgentes',
       channelDescription: 'Canal pour les alarmes de santé critiques',
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
       ticker: 'Rappel Médicament',
       category: AndroidNotificationCategory.alarm,
       audioAttributesUsage: AudioAttributesUsage.alarm,
       playSound: true,
       enableVibration: true,
-      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000, 500, 2000]),
       icon: '@mipmap/launcher_icon',
       color: const Color(0xFF0D9488),
-      fullScreenIntent: false, // On désactive le plein écran pour l'instant pour tester la notif simple
+      fullScreenIntent: true,
+      ongoing: true,      // L'alarme reste tant qu'on ne l'éteint pas
+      autoCancel: false,  // Ne pas disparaître au clic
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -568,7 +603,6 @@ class NotificationService {
       android: androidDetails,
       iOS: iosDetails,
     );
-
     final scheduledDate = _nextInstanceOfTime(hour, minute);
 
     try {
@@ -583,7 +617,8 @@ class NotificationService {
         payload: payload,
       );
       debugPrint(
-          '[NotificationService] Medication scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)');
+        '[NotificationService] Medication Alarm scheduled: $title at $hour:${minute.toString().padLeft(2, '0')} (ID=$id)',
+      );
     } catch (e) {
       debugPrint('[NotificationService] Error scheduling medication $id: $e');
     }

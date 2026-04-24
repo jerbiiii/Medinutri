@@ -55,10 +55,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
   }
 
   bool _isTakenToday(String medId, String time) {
-    return _todayLogs.any((l) =>
-        l.medicationId == medId &&
-        l.scheduledTime == time &&
-        l.status == 'taken');
+    return _todayLogs.any(
+      (l) =>
+          l.medicationId == medId &&
+          l.scheduledTime == time &&
+          l.status == 'taken',
+    );
   }
 
   Future<void> _markTaken(Medication med, String time) async {
@@ -89,7 +91,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF000000) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark
+          ? const Color(0xFF000000)
+          : const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Mes Médicaments'),
         actions: [
@@ -119,14 +123,17 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D9488)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0D9488)),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Adherence card
-                  _buildAdherenceCard(isDark).animate().fadeIn().slideY(begin: 0.1, end: 0),
+                  _buildAdherenceCard(
+                    isDark,
+                  ).animate().fadeIn().slideY(begin: 0.1, end: 0),
                   const SizedBox(height: 24),
 
                   if (_medications.isEmpty)
@@ -142,7 +149,11 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     ).animate().fadeIn(delay: 200.ms),
                     const SizedBox(height: 12),
                     ..._medications.asMap().entries.map((entry) {
-                      return _buildMedicationCard(entry.value, isDark, entry.key)
+                      return _buildMedicationCard(
+                            entry.value,
+                            isDark,
+                            entry.key,
+                          )
                           .animate(delay: (300 + entry.key * 100).ms)
                           .fadeIn()
                           .slideX(begin: 0.05, end: 0);
@@ -172,7 +183,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         border: isDark ? Border.all(color: Colors.white10) : null,
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.transparent : const Color(0xFF0D9488).withValues(alpha: 0.25),
+            color: isDark
+                ? Colors.transparent
+                : const Color(0xFF0D9488).withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -180,7 +193,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       ),
       child: Row(
         children: [
-          // Circular progress
           SizedBox(
             width: 70,
             height: 70,
@@ -192,13 +204,17 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   strokeWidth: 6,
                   backgroundColor: Colors.white.withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation(
-                    percent >= 80 ? Colors.greenAccent : (percent >= 50 ? Colors.orangeAccent : Colors.redAccent),
+                    percent >= 80
+                        ? Colors.greenAccent
+                        : (percent >= 50
+                              ? Colors.orangeAccent
+                              : Colors.redAccent),
                   ),
                 ),
                 Text(
                   '$percent%',
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.white,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -245,7 +261,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF121212) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white10 : color.withValues(alpha: 0.1)),
+        border: Border.all(
+          color: isDark ? Colors.white10 : color.withValues(alpha: 0.1),
+        ),
         boxShadow: [
           BoxShadow(
             color: isDark ? Colors.transparent : color.withValues(alpha: 0.06),
@@ -263,7 +281,10 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
+                    colors: [
+                      color.withValues(alpha: 0.15),
+                      color.withValues(alpha: 0.05),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -285,31 +306,43 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     if (med.dosage.isNotEmpty)
                       Text(
                         med.dosage,
-                        style: TextStyle(color: isDark ? Colors.white60 : Colors.grey[500], fontSize: 13),
+                        style: TextStyle(
+                          color: isDark ? Colors.white60 : Colors.grey[500],
+                          fontSize: 13,
+                        ),
                       ),
                   ],
                 ),
               ),
-              // Delete button
               IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.redAccent.withValues(alpha: 0.6), size: 20),
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent.withValues(alpha: 0.6),
+                  size: 20,
+                ),
                 onPressed: () => _showDeleteDialog(med),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          // Frequency badge
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   med.frequencyLabel,
-                  style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11),
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
                 ),
               ),
               if (med.notes.isNotEmpty) ...[
@@ -317,7 +350,10 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 Expanded(
                   child: Text(
                     med.notes,
-                    style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[400], fontSize: 11),
+                    style: TextStyle(
+                      color: isDark ? Colors.white38 : Colors.grey[400],
+                      fontSize: 11,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -325,7 +361,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Time chips with take action
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -335,14 +370,27 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 onTap: taken ? null : () => _markTaken(med, time),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     gradient: taken
-                        ? const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF34D399)])
+                        ? const LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                          )
                         : null,
-                    color: taken ? null : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey[50]),
+                    color: taken
+                        ? null
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : Colors.grey[50]),
                     borderRadius: BorderRadius.circular(12),
-                    border: taken ? null : Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
+                    border: taken
+                        ? null
+                        : Border.all(
+                            color: isDark ? Colors.white10 : Colors.grey[200]!,
+                          ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -350,7 +398,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       Icon(
                         taken ? Icons.check_circle : Icons.access_time_rounded,
                         size: 16,
-                        color: taken ? Colors.white : (isDark ? Colors.white60 : Colors.grey[500]),
+                        color: taken
+                            ? Colors.white
+                            : (isDark ? Colors.white60 : Colors.grey[500]),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -358,14 +408,22 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
-                          color: taken ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E293B)),
+                          color: taken
+                              ? Colors.white
+                              : (isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1E293B)),
                         ),
                       ),
                       if (!taken) ...[
                         const SizedBox(width: 6),
                         Text(
                           'Prendre',
-                          style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11),
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ],
@@ -384,12 +442,17 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          Icon(Icons.medication_outlined, size: 80, color: isDark ? Colors.white24 : Colors.grey[300]),
+          Icon(
+            Icons.medication_outlined,
+            size: 80,
+            color: isDark ? Colors.white24 : Colors.grey[300],
+          ),
           const SizedBox(height: 16),
           Text(
             'Aucun médicament',
             style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w800,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : const Color(0xFF1E293B),
             ),
           ),
@@ -397,7 +460,10 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           Text(
             'Ajoutez vos traitements pour\nrecevoir des rappels intelligents.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: isDark ? Colors.white60 : Colors.grey[500], fontSize: 14),
+            style: TextStyle(
+              color: isDark ? Colors.white60 : Colors.grey[500],
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -411,13 +477,19 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         title: const Text('Supprimer ce médicament ?'),
         content: Text('${med.name} sera supprimé définitivement.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _deleteMed(med);
             },
-            child: const Text('Supprimer', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -432,7 +504,15 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     List<String> times = ['08:00'];
     String selectedColor = '#0D9488';
 
-    final colors = ['#0D9488', '#EF4444', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#10B981'];
+    final colors = [
+      '#0D9488',
+      '#EF4444',
+      '#3B82F6',
+      '#F59E0B',
+      '#8B5CF6',
+      '#EC4899',
+      '#10B981',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -445,7 +525,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             color: isDark ? const Color(0xFF121212) : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,38 +538,49 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('Ajouter un médicament', style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
-                )),
+                Text(
+                  'Ajouter un médicament',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  ),
+                ),
                 const SizedBox(height: 20),
 
-                // Name
                 TextFormField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Nom du médicament',
-                    prefixIcon: Icon(Icons.medication, color: Color(0xFF0D9488)),
+                    prefixIcon: Icon(
+                      Icons.medication,
+                      color: Color(0xFF0D9488),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Dosage
                 TextFormField(
                   controller: dosageCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Dosage (ex: 500mg)',
-                    prefixIcon: Icon(Icons.science_outlined, color: Color(0xFF3B82F6)),
+                    prefixIcon: Icon(
+                      Icons.science_outlined,
+                      color: Color(0xFF3B82F6),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Frequency
                 DropdownButtonFormField<String>(
                   initialValue: frequency,
                   decoration: const InputDecoration(
@@ -492,11 +588,26 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     prefixIcon: Icon(Icons.repeat, color: Color(0xFFF59E0B)),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'daily', child: Text('Chaque jour')),
-                    DropdownMenuItem(value: 'twice_daily', child: Text('2 fois/jour')),
-                    DropdownMenuItem(value: 'three_daily', child: Text('3 fois/jour')),
-                    DropdownMenuItem(value: 'weekly', child: Text('Chaque semaine')),
-                    DropdownMenuItem(value: 'as_needed', child: Text('Si nécessaire')),
+                    DropdownMenuItem(
+                      value: 'daily',
+                      child: Text('Chaque jour'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'twice_daily',
+                      child: Text('2 fois/jour'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'three_daily',
+                      child: Text('3 fois/jour'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'weekly',
+                      child: Text('Chaque semaine'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'as_needed',
+                      child: Text('Si nécessaire'),
+                    ),
                   ],
                   onChanged: (val) {
                     setSheetState(() {
@@ -513,11 +624,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Times
-                Text('Heures de prise', style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.grey[600],
-                )),
+                Text(
+                  'Heures de prise',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.grey[600],
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -536,7 +649,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                         );
                         if (picked != null) {
                           setSheetState(() {
-                            times[e.key] = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                            times[e.key] =
+                                '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
                           });
                         }
                       },
@@ -545,11 +659,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Color selection
-                Text('Couleur', style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.grey[600],
-                )),
+                Text(
+                  'Couleur',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : Colors.grey[600],
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: colors.map((c) {
@@ -558,12 +674,24 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       onTap: () => setSheetState(() => selectedColor = c),
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
-                        width: 32, height: 32,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
                           color: _parseColor(c),
                           shape: BoxShape.circle,
-                          border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
-                          boxShadow: isSelected ? [BoxShadow(color: _parseColor(c).withValues(alpha: 0.4), blurRadius: 8)] : null,
+                          border: isSelected
+                              ? Border.all(color: Colors.white, width: 3)
+                              : null,
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: _parseColor(
+                                      c,
+                                    ).withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                  ),
+                                ]
+                              : null,
                         ),
                       ),
                     );
@@ -571,7 +699,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Notes
                 TextFormField(
                   controller: notesCtrl,
                   decoration: const InputDecoration(
@@ -581,19 +708,23 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Save button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(colors: ThemeNotifier.primaryGradient),
+                      gradient: const LinearGradient(
+                        colors: ThemeNotifier.primaryGradient,
+                      ),
                     ),
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         if (nameCtrl.text.trim().isEmpty) return;
-                        final auth = Provider.of<AuthProvider>(ctx, listen: false);
+                        final auth = Provider.of<AuthProvider>(
+                          ctx,
+                          listen: false,
+                        );
                         final userId = auth.currentUser?.id;
                         if (userId == null) return;
 
@@ -602,41 +733,64 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                           name: nameCtrl.text.trim(),
                           dosage: dosageCtrl.text.trim(),
                           frequency: frequency,
-                          times: times,
+                          times: List<String>.from(
+                            times,
+                          ), // snapshot current times
                           notes: notesCtrl.text.trim(),
                           color: selectedColor,
                         );
 
                         Navigator.pop(ctx);
-                        final error = await SupabaseService.instance.saveMedication(med);
-                        if (error == null) {
-                          // Schedule notifications
-                          final meds = await SupabaseService.instance.getMedications(userId);
-                          if (meds.isNotEmpty) {
-                            final saved = meds.first;
-                            await NotificationService.instance.scheduleMedicationReminders(
-                              medicationId: saved.id!,
-                              medicationName: saved.name,
-                              dosage: saved.dosage,
-                              times: saved.times,
-                            );
-                          }
+
+                        // ── FIX BUG #1 ──────────────────────────────────
+                        // Use the (error, savedId) record returned by saveMedication
+                        // instead of re-fetching all medications and guessing meds.first.
+                        final (error, savedId) = await SupabaseService.instance
+                            .saveMedication(med);
+
+                        if (error == null && savedId != null) {
+                          // Schedule with the exact UUID from Supabase
+                          await NotificationService.instance
+                              .scheduleMedicationReminders(
+                                medicationId: savedId,
+                                medicationName: med.name,
+                                dosage: med.dosage,
+                                times: med.times,
+                              );
+                          debugPrint(
+                            '[MedicationsScreen] Notifications scheduled for $savedId',
+                          );
                         }
+
                         if (!mounted) return;
                         await _loadData();
                         if (!context.mounted) return;
-                        
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(error ?? '💊 ${med.name} ajouté avec rappels !'),
-                            backgroundColor: error != null ? Colors.redAccent : const Color(0xFF10B981),
+                            content: Text(
+                              error != null
+                                  ? 'Erreur : $error'
+                                  : '💊 ${med.name} ajouté avec rappels !',
+                            ),
+                            backgroundColor: error != null
+                                ? Colors.redAccent
+                                : const Color(0xFF10B981),
                             behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                         );
                       },
                       icon: const Icon(Icons.check, color: Colors.white),
-                      label: const Text('Ajouter le médicament', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                      label: const Text(
+                        'Ajouter le médicament',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,

@@ -22,8 +22,9 @@ class WidgetService {
     double? bmi,
     String? bmiCategory,
     int? tdee,
-    String? nextMeal,
-    String? nextMealTime,
+    String? breakfast,
+    String? lunch,
+    String? dinner,
     int? activeMedications,
     String? healthTip,
   }) async {
@@ -40,11 +41,14 @@ class WidgetService {
       if (tdee != null) {
         await HomeWidget.saveWidgetData('tdee', '$tdee kcal');
       }
-      if (nextMeal != null) {
-        await HomeWidget.saveWidgetData('next_meal', nextMeal);
+      if (breakfast != null) {
+        await HomeWidget.saveWidgetData('breakfast', breakfast);
       }
-      if (nextMealTime != null) {
-        await HomeWidget.saveWidgetData('next_meal_time', nextMealTime);
+      if (lunch != null) {
+        await HomeWidget.saveWidgetData('lunch', lunch);
+      }
+      if (dinner != null) {
+        await HomeWidget.saveWidgetData('dinner', dinner);
       }
       if (activeMedications != null) {
         await HomeWidget.saveWidgetData('medications', '$activeMedications');

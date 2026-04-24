@@ -114,8 +114,14 @@ class HealthProvider with ChangeNotifier {
 
     String response;
     if (_groqService != null) {
+      // NETTOYAGE : Supprimer les champs non supportés par Groq
+      final cleanMessages = _messages.map((m) => {
+        'role': m['role']!,
+        'content': m['content']!,
+      }).toList();
+
       response = await _groqService!.getChatResponse(
-        _messages,
+        cleanMessages,
         customSystemPrompt: systemContext,
       );
     } else {
@@ -130,7 +136,11 @@ class HealthProvider with ChangeNotifier {
   }
 
   Future<void> _addMessage(String role, String content) async {
-    _messages.add({'role': role, 'content': content});
+    _messages.add({
+      'role': role, 
+      'content': content,
+      'is_archived': 'false',
+    });
 
     _activeConversationId ??= DateTime.now().millisecondsSinceEpoch.toString();
 
@@ -458,34 +468,6 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
     }
   }
 
-  Future<String> generateDiagnosticSummary() async {
-    final profile = _currentProfile;
-    if (profile == null) return 'Complétez votre profil pour un diagnostic.';
-
-    if (_messages.isEmpty) {
-      return 'Aucune consultation récente. Décrivez vos symptômes au Dr. Vitality.';
-    }
-
-    final recentMessages = _messages.length > 8
-        ? _messages.sublist(_messages.length - 8)
-        : List<Map<String, String>>.from(_messages);
-
-    final summaryPrompt =
-        'Résume en UNE phrase courte (max 20 mots) le principal problème de santé '
-        'évoqué dans cette conversation. Commence par le problème, pas par "Le patient...".';
-
-    final summary = await _groqService?.getChatResponse(
-      recentMessages,
-      customSystemPrompt: summaryPrompt,
-    );
-
-    if (summary == null ||
-        summary.startsWith('__') ||
-        summary.startsWith('Erreur')) {
-      return 'Dernière consultation disponible. Une consultation vidéo est recommandée.';
-    }
-    return summary.replaceAll('"', '').trim();
-  }
 
   Future<String> analyzeForVoiceConsultation(
     String text,
@@ -510,29 +492,26 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
     final meds = await SupabaseService.instance.getMedications(_currentUser!.id!);
     
     // Determine next meal
-    String nextMeal = "Aucun plan";
-    String nextMealTime = "";
+    // Determine meals
+    String breakfast = "Aucun plan";
+    String lunch = "Aucun plan";
+    String dinner = "Aucun plan";
+    
     if (_currentPlan != null) {
       final now = DateTime.now();
       final dayNames = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
       final todayName = dayNames[now.weekday - 1];
       final dayPlan = _currentPlan!.weeklyMeals[todayName] ?? (_currentPlan!.weeklyMeals.values.isNotEmpty ? _currentPlan!.weeklyMeals.values.first : []);
       
-      final hour = now.hour;
       if (dayPlan.isNotEmpty) {
-        if (hour < 10) {
-          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('petit'), orElse: () => dayPlan[0]);
-          nextMeal = "Petit-déj: ${m.name}";
-          nextMealTime = "07:30";
-        } else if (hour < 15) {
-          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('déjeuner'), orElse: () => dayPlan.length > 1 ? dayPlan[1] : dayPlan[0]);
-          nextMeal = "Déjeuner: ${m.name}";
-          nextMealTime = "12:30";
-        } else {
-          final m = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('dîner'), orElse: () => dayPlan.last);
-          nextMeal = "Dîner: ${m.name}";
-          nextMealTime = "19:30";
-        }
+        final b = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('petit'), orElse: () => dayPlan[0]);
+        breakfast = b.name;
+        
+        final l = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('déjeuner'), orElse: () => dayPlan.length > 1 ? dayPlan[1] : dayPlan[0]);
+        lunch = l.name;
+        
+        final d = dayPlan.firstWhere((m) => m.type.toLowerCase().contains('dîner'), orElse: () => dayPlan.last);
+        dinner = d.name;
       }
     }
 
@@ -541,8 +520,9 @@ FORMAT JSON STRICT — UNIQUEMENT CE JSON :
       bmi: _currentProfile!.bmi,
       bmiCategory: _currentProfile!.bmiStatus,
       tdee: _currentProfile!.tdee.round(),
-      nextMeal: nextMeal,
-      nextMealTime: nextMealTime,
+      breakfast: breakfast,
+      lunch: lunch,
+      dinner: dinner,
       activeMedications: meds.length,
     );
   }

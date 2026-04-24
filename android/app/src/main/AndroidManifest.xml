@@ -1,50 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  MediNutri — android/app/src/main/AndroidManifest.xml           ║
+  ║                                                                  ║
+  ║  INSTRUCTIONS :                                                  ║
+  ║  Remplace le contenu de ton AndroidManifest.xml existant par     ║
+  ║  ce fichier, ou fusionne les permissions et le receiver ci-bas   ║
+  ║  dans ton fichier existant.                                      ║
+  ╚══════════════════════════════════════════════════════════════════╝
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- ── PERMISSIONS OBLIGATOIRES ─────────────────────────── -->
+
+    <!-- Afficher les notifications (Android 13 / API 33+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Alarmes exactes : obligatoire pour zonedSchedule + exactAllowWhileIdle -->
+    <!-- Android 12 (API 31) : utiliser SCHEDULE_EXACT_ALARM (nécessite validation utilisateur) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Android 13+ : USE_EXACT_ALARM est accordée automatiquement pour les apps médicales -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Rétablir les alarmes après redémarrage du téléphone -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Vibration pour les rappels médicaments -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="https" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="geo" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.DIAL" />
-        </intent>
-    </queries>
+    <!-- Empêcher le système d'endormir le CPU lors du déclenchement -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Notification en plein écran (MedicationAlarmScreen sur écran verrouillé) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Internet (Supabase / Groq API) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Localisation (carte pharmacies) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Télémédecine : Microphone et Bluetooth -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-     <!-- Photo de profil — Android < 13 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <!-- Photo de profil — Android 13+ -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- Caméra -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Notifications -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+
     <application
-        android:label="medinutri"
+        android:label="MediNutri"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
-        android:enableOnBackInvokedCallback="true"
-        android:usesCleartextTraffic="true">
+        android:enableOnBackInvokedCallback="true">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -53,47 +60,75 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+            android:windowSoftInputMode="adjustResize"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true">
+
+            <!-- Intent filter principal -->
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Métadonnées Flutter -->
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- ── RECEIVERS flutter_local_notifications ──────────── -->
+
+        <!--
+          Receiver pour reprogrammer les alarmes après redémarrage.
+          Sans ce receiver, toutes les notifications planifiées sont
+          perdues quand l'utilisateur éteint/rallume son téléphone.
+        -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <!-- Huawei / Honor -->
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          Receiver pour déclencher les alarmes exactes programmées.
+          Obligatoire pour AndroidScheduleMode.exactAllowWhileIdle.
+        -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+            
+        <!-- ── RECEIVER Home Screen Widget ──────────────────────── -->
+        <receiver android:name="com.medinutri.medinutri.HealthWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                       android:resource="@xml/health_widget_info" />
+        </receiver>
+
+        <!-- Métadonnées Flutter -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Home Screen Widget -->
-        <receiver
-            android:name=".HealthWidgetProvider"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/health_widget_info" />
-        </receiver>
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Requête de permission exacte (Android 12+) -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
+
 </manifest>

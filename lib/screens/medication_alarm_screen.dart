@@ -4,6 +4,8 @@ import 'package:medinutri/models/health_models.dart';
 import '../services/supabase_service.dart';
 import '../services/health_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'dart:async';
 
 class MedicationAlarmScreen extends StatefulWidget {
   final String medicationId;
@@ -23,23 +25,78 @@ class MedicationAlarmScreen extends StatefulWidget {
 
 class _MedicationAlarmScreenState extends State<MedicationAlarmScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  final FlutterTts _tts = FlutterTts();
   double _dragValue = 0.0;
+  bool _isSpeaking = false;
+  int _announcementCount = 0;
+  Timer? _ttsTimer;
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
     
-    // Jouer une vibration continue si possible
+    _initTts();
+    
+    // Jouer une vibration continue
     HapticFeedback.heavyImpact();
+    Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      HapticFeedback.vibrate();
+    });
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage("fr-FR");
+    await _tts.setSpeechRate(0.5);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.0);
+    
+    _tts.setCompletionHandler(() => setState(() => _isSpeaking = false));
+    _tts.setErrorHandler((msg) => setState(() => _isSpeaking = false));
+    _tts.setCancelHandler(() => setState(() => _isSpeaking = false));
+    
+    _startAnnouncements();
+  }
+
+  void _startAnnouncements() {
+    if (!mounted) return;
+    
+    // Première annonce immédiate
+    _announce();
+    
+    _ttsTimer = Timer.periodic(const Duration(seconds: 8), (timer) async {
+      if (!mounted) return;
+      if (_announcementCount >= 2) {
+        timer.cancel();
+        return;
+      }
+      _announce();
+    });
+  }
+
+  Future<void> _announce() async {
+    if (_isSpeaking || _announcementCount >= 2) return;
+    
+    setState(() {
+      _isSpeaking = true;
+      _announcementCount++;
+    });
+    
+    await _tts.speak("Rappel MédiNutri : Il est l'heure de prendre votre ${widget.medicationName}.");
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _ttsTimer?.cancel();
+    _tts.stop();
     super.dispose();
   }
 
@@ -160,16 +217,19 @@ class _MedicationAlarmScreenState extends State<MedicationAlarmScreen> with Sing
                     elevation: 8,
                     shadowColor: const Color(0xFF0D9488).withValues(alpha: 0.5),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check_circle_outline, size: 32),
-                      SizedBox(width: 15),
-                      Text(
-                        'JE PRENDS MAINTENANT',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                      ),
-                    ],
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 32),
+                        SizedBox(width: 15),
+                        Text(
+                          'JE PRENDS MAINTENANT',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

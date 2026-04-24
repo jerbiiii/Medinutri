@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -31,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _photoPath;
   File? _localImageFile;
   bool _isPickingPhoto = false;
+  Timer? _debounceTimer;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -50,16 +52,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _activityLevel = profile?.activityLevel ?? "Modérée";
     _goal = profile?.goal ?? "Équilibre alimentaire";
     _photoPath = profile?.photoPath;
+
+    // Ajouter des écouteurs pour la sauvegarde en temps réel
+    _nameController.addListener(_onFieldChanged);
+    _ageController.addListener(_onFieldChanged);
+    _weightController.addListener(_onFieldChanged);
+    _heightController.addListener(_onFieldChanged);
+    _allergiesController.addListener(_onFieldChanged);
+    _conditionsController.addListener(_onFieldChanged);
+  }
+
+  void _onFieldChanged() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) _handleUpdate(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onFieldChanged);
+    _ageController.removeListener(_onFieldChanged);
+    _weightController.removeListener(_onFieldChanged);
+    _heightController.removeListener(_onFieldChanged);
+    _allergiesController.removeListener(_onFieldChanged);
+    _conditionsController.removeListener(_onFieldChanged);
+
     _nameController.dispose();
     _ageController.dispose();
     _weightController.dispose();
     _heightController.dispose();
     _allergiesController.dispose();
     _conditionsController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -97,7 +122,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isPickingPhoto = false);
+      if (mounted) {
+        setState(() => _isPickingPhoto = false);
+        _handleUpdate(silent: true);
+      }
     }
   }
 
@@ -176,6 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     setState(() => _photoPath = null);
+                    _handleUpdate(silent: true);
                   },
                 ),
               const SizedBox(height: 8),
@@ -187,29 +216,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ─── Enregistrer le profil ───────────────────────────
-  Future<void> _handleUpdate() async {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _handleUpdate({bool silent = false}) async {
+    if (_formKey.currentState?.validate() ?? false) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final currentProfile = authProvider.currentProfile;
 
-      if (currentProfile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur : profil non chargé. Veuillez vous reconnecter.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
+      if (currentProfile == null) return;
 
       final updatedProfile = PatientProfile(
         id: currentProfile.id,
         userId: currentProfile.userId,
         name: _nameController.text.trim(),
-        age: int.parse(_ageController.text.trim()),
+        age: int.tryParse(_ageController.text.trim()) ?? currentProfile.age,
         gender: _gender,
-        weight: double.parse(_weightController.text.trim()),
-        height: double.parse(_heightController.text.trim()),
+        weight: double.tryParse(_weightController.text.trim()) ?? currentProfile.weight,
+        height: double.tryParse(_heightController.text.trim()) ?? currentProfile.height,
         activityLevel: _activityLevel,
         allergies: _allergiesController.text.trim(),
         medicalConditions: _conditionsController.text.trim(),
@@ -221,7 +242,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         updatedProfile,
         imageFile: _localImageFile,
       );
-      if (mounted) {
+      
+      if (mounted && !silent) {
         if (error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -236,7 +258,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Color(0xFF10B981),
             ),
           );
-          Navigator.pop(context);
         }
       }
     }
@@ -405,7 +426,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       value: _gender,
                       items: ['Homme', 'Femme', 'Autre'],
                       isDark: isDark,
-                      onChanged: (val) => setState(() => _gender = val!),
+                      onChanged: (val) {
+                        setState(() => _gender = val!);
+                        _handleUpdate(silent: true);
+                      },
                     ),
                   ),
                 ],
@@ -453,7 +477,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     : 'Modérée',
                 items: ['Sédentaire', 'Modérée', 'Active', 'Très Active'],
                 isDark: isDark,
-                onChanged: (val) => setState(() => _activityLevel = val!),
+                onChanged: (val) {
+                  setState(() => _activityLevel = val!);
+                  _handleUpdate(silent: true);
+                },
               ),
               const SizedBox(height: 16),
               _buildDropdown(
@@ -474,7 +501,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   "Plus d'énergie",
                 ],
                 isDark: isDark,
-                onChanged: (val) => setState(() => _goal = val!),
+                onChanged: (val) {
+                  setState(() => _goal = val!);
+                  _handleUpdate(silent: true);
+                },
               ),
               const SizedBox(height: 16),
               _buildField(
@@ -562,39 +592,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ).animate().fadeIn(delay: 400.ms).slideX(),
               const SizedBox(height: 40),
 
-              // ── Save button (gradient) ────────────────
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: const LinearGradient(
-                    colors: ThemeNotifier.primaryGradient,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0D9488).withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: _handleUpdate,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Enregistrer les modifications',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ).animate().fadeIn(delay: 500.ms).scale(begin: const Offset(0.98, 0.98), end: const Offset(1, 1)),
-              const SizedBox(height: 24),
+              // Le bouton a été supprimé pour une sauvegarde en temps réel.
+              const SizedBox(height: 40),
             ],
           ),
         ),

@@ -271,12 +271,19 @@ class _VoiceConsultationScreenState extends State<VoiceConsultationScreen>
 
     try {
       final hp = Provider.of<HealthProvider>(context, listen: false);
-      final response = await hp.analyzeForVoiceConsultation(
+      String response = await hp.analyzeForVoiceConsultation(
         text,
         _localHistory,
         _doctorPersona,
       );
       if (!mounted) return;
+
+      // Gérer les erreurs de l'IA proprement
+      if (response == "__RATE_LIMITED__") {
+        response = "Désolé, je reçois trop de demandes. Réessayez dans un instant.";
+      } else if (response == "__ERROR__" || response.isEmpty) {
+        response = "Je rencontre une petite difficulté technique. Pouvez-vous répéter ?";
+      }
 
       _currentSpeechText = response;
       _setAvatarState(
